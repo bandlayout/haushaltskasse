@@ -44,7 +44,10 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.who{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+.who{display:flex;align-items:center;gap:4px 10px;font-size:.85rem;color:var(--muted);flex-wrap:wrap}
+.who .x{white-space:nowrap;padding:4px 2px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.who > span{flex-basis:100%}
+@media (min-width:640px){.who > span{flex-basis:auto}}
 .seg{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-weight:600;font-size:.85rem;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
@@ -122,7 +125,7 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .track{height:12px;background:var(--sunk);border-radius:999px;overflow:hidden;display:flex}
 .cat .val{text-align:right;font-family:var(--f-num);font-weight:700}
 
-/* shopping */
+/* shopping list */
 .add-row{display:flex;gap:8px}
 .add-row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:11px 12px}
 .shop li{display:flex;align-items:center;gap:12px;padding:10px 4px;border-top:1px solid var(--line)}
@@ -141,6 +144,17 @@ dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface)
 .login{min-height:100%;justify-content:center;padding-block:15vh 48px}
 .login-card{display:flex;flex-direction:column;gap:14px}
 .err{color:var(--danger);margin:0;font-size:.9rem}
+.login-form{display:flex;flex-direction:column;gap:12px}
+.login-form input{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:10px 11px;width:100%}
+.pockets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;margin-inline:-2px;padding-inline:2px}
+.pocket{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px;min-width:7.5rem;text-align:left}
+.pocket b{font-family:var(--f-display);font-weight:600;font-size:.95rem}
+.pocket small{font-family:var(--f-num);font-size:.72rem;color:var(--muted)}
+.pocket small.pa{color:var(--a)} .pocket small.pb{color:var(--b)}
+.pocket[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.slip-actions{align-items:center}
+.all-line{font-size:.85rem}
+.cmp-bal{font-family:var(--f-num);font-size:.78rem}
 dialog::backdrop{background:rgb(0 0 0 / .45)}
 dialog form{display:flex;flex-direction:column;gap:12px}
 @media (prefers-reduced-motion:no-preference){.bar span,.track span{transition:width .35s ease}}
@@ -152,10 +166,10 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 <div class="wrap login" id="login" hidden>
   <div class="card login-card">
     <h1>Haushaltskasse</h1>
-    <p class="muted" style="margin:0">Gib euer gemeinsames Passwort ein.</p>
-    <form id="loginForm" class="add-row" autocomplete="on">
-      <input type="email" name="username" value="haushalt@example.com" autocomplete="username" hidden>
-      <input id="pw" type="password" autocomplete="current-password" placeholder="Passwort" aria-label="Passwort" required>
+    <p class="muted" style="margin:0">Melde dich mit deiner E-Mail-Adresse an.</p>
+    <form id="loginForm" class="login-form" autocomplete="on">
+      <div class="f"><label for="em">E-Mail</label><input id="em" type="email" name="username" autocomplete="username" required></div>
+      <div class="f"><label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" required></div>
       <button class="btn primary" id="loginBtn" type="submit">Anmelden</button>
     </form>
     <p id="loginErr" class="err" hidden></p>
@@ -164,20 +178,20 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 <div class="wrap" id="app" hidden>
   <header class="top">
     <h1>Haushaltskasse</h1>
-    <div class="who">Ich bin
-      <div class="seg" id="meSeg" role="group" aria-label="Wer bist du?">
-        <button type="button" id="me-a" data-me="a" aria-pressed="true">Person A</button>
-        <button type="button" id="me-b" data-me="b" aria-pressed="false">Person B</button>
-      </div>
-      <button class="x" id="editNames" type="button" title="Namen ändern">Namen ändern</button>
+    <div class="who"><span>Angemeldet als <b id="meName">…</b></span>
+      <button class="x" id="editNames" type="button">Namen</button>
+      <button class="x" id="editPw" type="button">Passwort ändern</button>
+      <button class="x" id="reloadApp" type="button" title="Neueste Version der App laden">Aktuelle Version laden</button>
       <button class="x" id="logout" type="button">Abmelden</button>
     </div>
   </header>
 
   <div id="status" class="notice">Daten werden geladen …</div>
 
+  <nav class="pockets" id="pockets" aria-label="Pockets"></nav>
+
   <section class="slip" aria-live="polite">
-    <div class="label">Kontostand</div>
+    <div class="label" id="slipLabel">Kontostand</div>
     <div class="verdict" id="verdict">Alles ausgeglichen</div>
     <div>
       <div class="bar" aria-hidden="true"><span id="barA" style="width:50%;background:var(--a)"></span><span id="barB" style="width:50%;background:var(--b)"></span></div>
@@ -188,6 +202,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     </div>
     <div class="slip-actions">
       <button class="btn small" id="settleBtn" type="button" hidden>Schulden begleichen</button>
+      <span class="muted all-line" id="allLine"></span>
     </div>
   </section>
 
@@ -257,7 +272,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
   <section class="panel" id="p-uebersicht" hidden>
     <div class="filters"><select id="oMonth" aria-label="Zeitraum"></select></div>
     <div class="stats">
-      <div class="stat tot"><div class="k">Gesamtausgaben</div><div class="v" id="sTotal">0,00 €</div></div>
+      <div class="stat tot"><div class="k" id="sKT">Ausgaben</div><div class="v" id="sTotal">0,00 €</div></div>
       <div class="stat"><div class="k" id="sKA">Anteil A</div><div class="v pa" id="sA">0,00 €</div></div>
       <div class="stat"><div class="k" id="sKB">Anteil B</div><div class="v pb" id="sB">0,00 €</div></div>
     </div>
@@ -265,6 +280,11 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       <h2 style="margin-bottom:14px">Nach Kategorie</h2>
       <div class="cats" id="cats"></div>
       <p class="muted" style="font-size:.8rem;margin:14px 0 0">Balken zeigen, wer in jeder Kategorie wie viel bezahlt hat.</p>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:14px">Alle Pockets im Vergleich</h2>
+      <div class="cats" id="pocketCmp"></div>
+      <p class="muted" style="font-size:.8rem;margin:14px 0 0">Ausgaben im gewählten Zeitraum, darunter der offene Saldo des Pockets.</p>
     </div>
   </section>
 </div>
@@ -276,6 +296,18 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     <div class="f"><label for="nB">Name Person B</label><input id="nB" maxlength="20" required></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" type="button" id="namesCancel">Abbrechen</button>
+      <button class="btn primary" type="submit">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="pwDlg">
+  <form method="dialog" id="pwForm">
+    <h2>Passwort ändern</h2>
+    <div class="f"><label for="pw1">Neues Passwort (mind. 8 Zeichen)</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required></div>
+    <div class="f"><label for="pw2">Neues Passwort wiederholen</label><input id="pw2" type="password" autocomplete="new-password" minlength="8" required></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" type="button" id="pwCancel">Abbrechen</button>
       <button class="btn primary" type="submit">Speichern</button>
     </div>
   </form>
@@ -318,7 +350,9 @@ const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 const monthKey=d=>(d||"").slice(0,7);
 const monthName=k=>{const [y,m]=k.split("-");return new Date(+y,+m-1,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"})};
 
-const S={names:{a:"Person A",b:"Person B"},namesSet:false,exp:[],shop:[],me:ls.get("hk-me")==="b"?"b":"a",split:"half",sb:null,loaded:{n:false,e:false,s:false}};
+const S={names:{a:"Person A",b:"Person B"},namesSet:false,exp:[],shop:[],pockets:[],pocket:ls.get("hk-pocket")||"lebensmittel",me:"a",split:"half",sb:null,loaded:{n:false,e:false,s:false}};
+const PX=()=>S.exp.filter(x=>x.pocket===S.pocket);
+const pocketName=id=>(S.pockets.find(p=>p.id===id)||{}).name||id;
 const other=p=>p==="a"?"b":"a";
 const nm=p=>S.names[p]||(p==="a"?"Person A":"Person B");
 
@@ -337,19 +371,18 @@ function effect(x){
   const shareA=x.shareA??50;
   return x.paidBy==="a"? x.cents*(100-shareA)/100 : -x.cents*shareA/100;
 }
-function balance(){
+function balance(list=PX()){
   let net=0,pa=0,pb=0;
-  for(const x of S.exp){net+=effect(x);if(x.kind!=="settle"){if(x.paidBy==="a")pa+=x.cents;else pb+=x.cents}}
+  for(const x of list){net+=effect(x);if(x.kind!=="settle"){if(x.paidBy==="a")pa+=x.cents;else pb+=x.cents}}
   return {net:Math.round(net),pa,pb};
 }
 
 /* ---------- render ---------- */
 function renderNames(){
-  $("me-a").textContent=nm("a");$("me-b").textContent=nm("b");
-  $("lgA").textContent=nm("a");$("lgB").textContent=nm("b");
+    $("lgA").textContent=nm("a");$("lgB").textContent=nm("b");
   const ps=$("ePaid");ps.options[0].textContent=nm("a");ps.options[1].textContent=nm("b");
   $("sKA").textContent="Anteil "+nm("a");$("sKB").textContent="Anteil "+nm("b");
-  for(const b of document.querySelectorAll("[data-me]"))b.setAttribute("aria-pressed",String(b.dataset.me===S.me));
+  $("meName").textContent=nm(S.me);$("meName").className="p"+S.me;
   renderSplit();
 }
 function renderBalance(){
@@ -362,7 +395,20 @@ function renderBalance(){
     $("settleBtn").hidden=false;
   }
   $("paidA").textContent=eur(pa);$("paidB").textContent=eur(pb);
+  $("slipLabel").textContent="Kontostand · "+pocketName(S.pocket);
+  const all=balance(S.exp).net;
+  $("allLine").textContent=S.pockets.length>1?(Math.abs(all)<1?"Über alle Pockets: ausgeglichen":`Über alle Pockets: ${nm(all>0?"b":"a")} schuldet ${nm(all>0?"a":"b")} ${eur(Math.abs(all))}`):"";
+  renderPockets();
   const t=pa+pb;$("barA").style.width=(t?pa/t*100:50)+"%";$("barB").style.width=(t?pb/t*100:50)+"%";
+}
+function pocketSaldo(id){
+  const n=balance(S.exp.filter(x=>x.pocket===id)).net;
+  if(Math.abs(n)<1)return {txt:"ausgeglichen",cls:""};
+  const cred=n>0?"a":"b";return {txt:`${nm(cred)} +${eur(Math.abs(n))}`,cls:"p"+cred};
+}
+function renderPockets(){
+  $("pockets").innerHTML=S.pockets.map(p=>{const s=pocketSaldo(p.id);
+    return `<button type="button" class="pocket" id="pk-${esc(p.id)}" data-pocket="${esc(p.id)}" aria-pressed="${p.id===S.pocket}"><b>${esc(p.name)}</b><small class="${s.cls}">${esc(s.txt)}</small></button>`}).join("");
 }
 function renderSplit(){
   const paid=$("ePaid").value,o=other(paid);
@@ -385,7 +431,7 @@ function shareFor(paid){
 }
 function fillMonthSelect(sel,withAll){
   const prev=sel.value;
-  const months=[...new Set(S.exp.map(x=>monthKey(x.date)))].filter(Boolean).sort().reverse();
+  const months=[...new Set(PX().map(x=>monthKey(x.date)))].filter(Boolean).sort().reverse();
   const cur=monthKey(today());if(!months.includes(cur))months.unshift(cur);
   sel.innerHTML=(withAll?'<option value="all">Alle Monate</option>':"")+months.map(m=>`<option value="${m}">${monthName(m)}</option>`).join("");
   if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
@@ -393,10 +439,10 @@ function fillMonthSelect(sel,withAll){
 function renderExpenses(){
   fillMonthSelect($("fMonth"),true);
   const fm=$("fMonth").value||"all",fc=$("fCat").value||"all";
-  const rows=S.exp.filter(x=>(fm==="all"||monthKey(x.date)===fm)&&(fc==="all"||(fc==="settle"?x.kind==="settle":x.cat===fc&&x.kind!=="settle")));
+  const rows=PX().filter(x=>(fm==="all"||monthKey(x.date)===fm)&&(fc==="all"||(fc==="settle"?x.kind==="settle":x.cat===fc&&x.kind!=="settle")));
   const ul=$("expList");
   if(!S.loaded.e){ul.innerHTML='<li class="empty">Ausgaben werden geladen …</li>';return}
-  if(!rows.length){ul.innerHTML=`<li class="empty">${S.exp.length?"Keine Einträge für diesen Filter.":"Noch keine Ausgaben. Trag oben die erste ein – zum Beispiel den letzten Einkauf."}</li>`;return}
+  if(!rows.length){ul.innerHTML=`<li class="empty">${PX().length?"Keine Einträge für diesen Filter.":`Noch keine Ausgaben im Pocket „${esc(pocketName(S.pocket))}“. Trag oben die erste ein.`}</li>`;return}
   let html="",lastM="";
   for(const x of rows){
     const m=monthKey(x.date);
@@ -429,7 +475,14 @@ function renderExpenses(){
 function renderOverview(){
   fillMonthSelect($("oMonth"),true);
   const fm=$("oMonth").value||"all";
-  const rows=S.exp.filter(x=>x.kind!=="settle"&&(fm==="all"||monthKey(x.date)===fm));
+  const rows=PX().filter(x=>x.kind!=="settle"&&(fm==="all"||monthKey(x.date)===fm));
+  $("sKT").textContent="Ausgaben · "+pocketName(S.pocket);
+  const inM=x=>x.kind!=="settle"&&(fm==="all"||monthKey(x.date)===fm);
+  const cmp=S.pockets.map(p=>({p,t:S.exp.filter(x=>x.pocket===p.id&&inM(x)).reduce((s,x)=>s+x.cents,0),a:S.exp.filter(x=>x.pocket===p.id&&inM(x)&&x.paidBy==="a").reduce((s,x)=>s+x.cents,0)}));
+  const cmax=Math.max(1,...cmp.map(c=>c.t));
+  $("pocketCmp").innerHTML=cmp.map(c=>{const s=pocketSaldo(c.p.id);return `<div class="cat"><span>${esc(c.p.name)}<br><span class="cmp-bal ${s.cls}">${esc(s.txt)}</span></span>
+    <div class="track"><span style="width:${c.a/cmax*100}%;background:var(--a)"></span><span style="width:${(c.t-c.a)/cmax*100}%;background:var(--b)"></span></div>
+    <span class="val">${eur(c.t)}</span></div>`}).join("");
   let tot=0,sa=0,sb=0;const by={};
   for(const x of rows){
     tot+=x.cents;const shA=(x.shareA??50)/100;sa+=x.cents*shA;sb+=x.cents*(1-shA);
@@ -467,7 +520,7 @@ $("eCat").innerHTML=CATS.map(([k,v])=>`<option value="${k}">${v}</option>`).join
 $("fCat").innerHTML='<option value="all">Alle Kategorien</option>'+CATS.map(([k,v])=>`<option value="${k}">${v}</option>`).join("")+'<option value="settle">Ausgleichszahlungen</option>';
 $("eDate").value=today();
 $("ePaid").value=S.me;
-document.querySelectorAll("[data-me]").forEach(b=>b.onclick=()=>{S.me=b.dataset.me;ls.set("hk-me",S.me);$("ePaid").value=S.me;renderNames()});
+$("pockets").addEventListener("click",ev=>{const b=ev.target.closest("[data-pocket]");if(!b)return;S.pocket=b.dataset.pocket;ls.set("hk-pocket",S.pocket);renderBalance();renderExpenses();renderOverview()});
 document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{S.split=b.dataset.split;renderSplit()});
 ["ePaid","eShare","eAmt"].forEach(id=>$(id).addEventListener("input",renderSplit));
 ["fMonth","fCat"].forEach(id=>$(id).addEventListener("change",renderExpenses));
@@ -481,7 +534,7 @@ $("expForm").addEventListener("submit",async ev=>{
   if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");$("eAmt").focus();return}
   if(busy)return;busy=true;$("expSubmit").disabled=true;
   const paid=$("ePaid").value;
-  const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:$("eCat").value,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today()};
+  const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:$("eCat").value,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today(),pocket_id:S.pocket};
   try{await q(S.sb.from("expenses").insert(row));await loadExp();
     $("eDesc").value="";$("eAmt").value="";S.split="half";renderSplit();toast("Ausgabe eingetragen");$("eDesc").focus();
   }catch(e){writeErr(e)}finally{busy=false;$("expSubmit").disabled=false}
@@ -495,7 +548,7 @@ $("expList").addEventListener("click",async ev=>{
 /* settle */
 $("settleBtn").onclick=()=>{
   const {net}=balance();const debtor=net>0?"b":"a",cred=other(debtor);
-  $("settleText").textContent=`${nm(debtor)} zahlt ${nm(cred)} Geld zurück. Der Betrag wird mit dem offenen Saldo verrechnet.`;
+  $("settleText").textContent=`Pocket „${pocketName(S.pocket)}“: ${nm(debtor)} zahlt ${nm(cred)} Geld zurück. Der Betrag wird mit dem offenen Saldo dieses Pockets verrechnet.`;
   $("sAmt").value=(Math.abs(net)/100).toFixed(2).replace(".",",");
   $("settleDlg").dataset.debtor=debtor;$("settleDlg").showModal();
 };
@@ -504,11 +557,11 @@ $("settleForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
   const cents=parseCents($("sAmt").value);if(!(cents>0)){toast("Bitte einen gültigen Betrag eingeben.");return}
   const debtor=$("settleDlg").dataset.debtor;$("settleDlg").close();
-  try{await q(S.sb.from("expenses").insert({kind:"settle",descr:`Ausgleich: ${nm(debtor)} an ${nm(other(debtor))}`,cents,paid_by:debtor,share_a:50,date:today()}));await loadExp();toast("Zahlung eingetragen")}catch(e){writeErr(e)}
+  try{await q(S.sb.from("expenses").insert({kind:"settle",descr:`Ausgleich: ${nm(debtor)} an ${nm(other(debtor))}`,cents,paid_by:debtor,share_a:50,date:today(),pocket_id:S.pocket}));await loadExp();toast("Zahlung eingetragen")}catch(e){writeErr(e)}
 });
 
 /* names */
-function openNames(){$("nA").value=S.namesSet?S.names.a:"";$("nB").value=S.namesSet?S.names.b:"";$("namesDlg").showModal()}
+function openNames(){$("nA").value=S.names.a;$("nB").value=S.names.b;$("namesDlg").showModal()}
 $("editNames").onclick=openNames;
 $("namesCancel").onclick=()=>$("namesDlg").close();
 $("namesForm").addEventListener("submit",async ev=>{
@@ -516,6 +569,22 @@ $("namesForm").addEventListener("submit",async ev=>{
   const a=$("nA").value.trim(),b=$("nB").value.trim();if(!a||!b)return;
   $("namesDlg").close();
   try{await q(S.sb.from("settings").update({name_a:a,name_b:b,names_set:true}).eq("id",1));await loadNames();toast("Namen gespeichert")}catch(e){writeErr(e)}
+});
+
+/* reload */
+$("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
+
+/* password */
+$("editPw").onclick=()=>{$("pw1").value="";$("pw2").value="";$("pwDlg").showModal()};
+$("pwCancel").onclick=()=>$("pwDlg").close();
+$("pwForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const a=$("pw1").value,b=$("pw2").value;
+  if(a.length<8){toast("Das Passwort braucht mindestens 8 Zeichen.");return}
+  if(a!==b){toast("Die beiden Passwörter sind verschieden.");return}
+  const {error}=await S.sb.auth.updateUser({password:a});
+  if(error){toast(/same|different/i.test(error.message)?"Das neue Passwort muss sich vom alten unterscheiden.":"Ändern hat nicht geklappt: "+error.message);return}
+  $("pwDlg").close();toast("Passwort geändert");
 });
 
 /* shopping */
@@ -541,9 +610,8 @@ $("clearDone").onclick=async()=>{
 /* ---------- data (Supabase) ---------- */
 const SB_URL="https://ckytrjxyplgqpphgmzvu.supabase.co";
 const SB_KEY="sb_publishable_naZjzUY_nOL41i29hfdiBw_549ddJGd";
-const HH_EMAIL="haushalt@example.com";
 function setStatus(msg){const s=$("status");s.textContent=msg||"";s.hidden=!msg}
-const fromExp=r=>({id:r.id,kind:r.kind,desc:r.descr,cents:r.cents,cat:r.cat,paidBy:r.paid_by,shareA:r.share_a,date:r.date,created:Date.parse(r.created_at)||0});
+const fromExp=r=>({pocket:r.pocket_id,id:r.id,kind:r.kind,desc:r.descr,cents:r.cents,cat:r.cat,paidBy:r.paid_by,shareA:r.share_a,date:r.date,created:Date.parse(r.created_at)||0});
 async function loadNames(){
   const d=await q(S.sb.from("settings").select("*").eq("id",1).maybeSingle());
   if(d){S.names={a:d.name_a,b:d.name_b};S.namesSet=!!d.names_set}
@@ -553,6 +621,17 @@ async function loadExp(){
   const d=await q(S.sb.from("expenses").select("*").order("date",{ascending:false}).order("created_at",{ascending:false}).limit(5000));
   S.exp=d.map(fromExp);S.loaded.e=true;renderBalance();renderExpenses();renderOverview();
 }
+async function loadPockets(){
+  S.pockets=await q(S.sb.from("pockets").select("*").order("sort").order("created_at"));
+  if(S.pockets.length&&!S.pockets.some(p=>p.id===S.pocket))S.pocket=S.pockets[0].id;
+  renderBalance();renderExpenses();renderOverview();
+}
+async function loadMe(){
+  const {data:{user}}=await S.sb.auth.getUser();
+  const r=user&&await q(S.sb.from("members").select("person").eq("email",(user.email||"").toLowerCase()).maybeSingle());
+  if(!r)throw new Error("not_member");
+  S.me=r.person;$("ePaid").value=S.me;renderNames();
+}
 async function loadShop(){
   const d=await q(S.sb.from("shopping").select("*").order("created_at",{ascending:true}));
   S.shop=d.map(r=>({id:r.id,text:r.text,done:r.done,by:r.added_by}));S.loaded.s=true;renderShop();
@@ -561,13 +640,15 @@ let channel=null,debounce={};
 const later=(k,fn)=>{clearTimeout(debounce[k]);debounce[k]=setTimeout(()=>fn().catch(writeErr),150)};
 async function loadAll(){
   setStatus("Daten werden geladen …");
-  try{await Promise.all([loadNames(),loadExp(),loadShop()]);setStatus("");if(!S.namesSet)openNames()}
+  try{await loadMe()}catch(e){console.error(e);setStatus("Dieses Konto gehört nicht zur Haushaltskasse. Melde dich ab und mit einer der beiden freigeschalteten E-Mail-Adressen wieder an.");return}
+  try{await Promise.all([loadNames(),loadPockets(),loadExp(),loadShop()]);setStatus("");if(!S.namesSet)openNames()}
   catch(e){console.error(e);setStatus("Die Daten konnten nicht geladen werden. Prüfe die Verbindung und lade die Seite neu.")}
   if(!channel){
     channel=S.sb.channel("haushalt")
       .on("postgres_changes",{event:"*",schema:"public",table:"expenses"},()=>later("e",loadExp))
       .on("postgres_changes",{event:"*",schema:"public",table:"shopping"},()=>later("s",loadShop))
       .on("postgres_changes",{event:"*",schema:"public",table:"settings"},()=>later("n",loadNames))
+      .on("postgres_changes",{event:"*",schema:"public",table:"pockets"},()=>later("p",loadPockets))
       .subscribe();
   }
 }
@@ -575,11 +656,11 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.sb&&$("
 function showLogin(show){$("login").hidden=!show;$("app").hidden=show}
 $("loginForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
-  const pw=$("pw").value;if(!pw)return;
+  const pw=$("pw").value,em=$("em").value.trim().toLowerCase();if(!pw||!em)return;
   $("loginBtn").disabled=true;$("loginErr").hidden=true;
-  const {error}=await S.sb.auth.signInWithPassword({email:HH_EMAIL,password:pw});
+  const {error}=await S.sb.auth.signInWithPassword({email:em,password:pw});
   $("loginBtn").disabled=false;
-  if(error){$("loginErr").textContent=/invalid/i.test(error.message)?"Das Passwort stimmt nicht.":"Anmeldung fehlgeschlagen: "+error.message;$("loginErr").hidden=false;return}
+  if(error){$("loginErr").textContent=/invalid/i.test(error.message)?"E-Mail oder Passwort stimmt nicht.":"Anmeldung fehlgeschlagen: "+error.message;$("loginErr").hidden=false;return}
   $("pw").value="";showLogin(false);loadAll();
 });
 $("logout").onclick=async()=>{if(channel){S.sb.removeChannel(channel);channel=null}await S.sb.auth.signOut();S.exp=[];S.shop=[];showLogin(true)};
