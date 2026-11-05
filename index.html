@@ -163,6 +163,13 @@ dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface)
 .slip-actions{align-items:center}
 .all-line{font-size:.85rem}
 .cmp-bal{font-family:var(--f-num);font-size:.78rem}
+dialog.wide{width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px)}
+.dlg{display:flex;flex-direction:column;gap:16px}
+.dsec{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--line)}
+.dsec h3{font-size:1rem;font-weight:600}
+.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.steps code,.dsec code{font-family:var(--f-num);font-size:.82rem;background:var(--sunk);padding:1px 5px;border-radius:5px}
+#shortUrl{font-family:var(--f-num);font-size:.78rem}
 dialog::backdrop{background:rgb(0 0 0 / .45)}
 dialog form{display:flex;flex-direction:column;gap:12px}
 @media (prefers-reduced-motion:no-preference){.bar span,.track span{transition:width .35s ease}}
@@ -189,6 +196,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     <h1>Haushaltskasse</h1>
     <div class="who"><span>Angemeldet als <b id="meName">…</b></span>
       <button class="x" id="editNames" type="button">Namen</button>
+      <button class="x" id="editPush" type="button">Benachrichtigungen</button>
       <button class="x" id="editPw" type="button">Passwort ändern</button>
       <button class="x" id="reloadApp" type="button" title="Neueste Version der App laden">Aktuelle Version laden</button>
       <button class="x" id="logout" type="button">Abmelden</button>
@@ -308,6 +316,37 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       <button class="btn primary" type="submit">Speichern</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="pushDlg" class="wide">
+  <div class="dlg">
+    <h2>Benachrichtigungen</h2>
+    <section class="dsec">
+      <h3>Push auf diesem Gerät</h3>
+      <p class="muted" style="margin:0">Du bekommst eine Mitteilung, wenn <b id="pushOther">die andere Person</b> eine Ausgabe, eine Rückzahlung oder etwas auf der Einkaufsliste einträgt.</p>
+      <p class="notice" id="pushHint" hidden></p>
+      <p id="pushState" class="muted" style="margin:0"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn primary" type="button" id="pushOn">Push aktivieren</button>
+        <button class="btn" type="button" id="pushTest" hidden>Test senden</button>
+        <button class="btn" type="button" id="pushOff" hidden>Auf diesem Gerät ausschalten</button>
+      </div>
+    </section>
+    <section class="dsec">
+      <h3>Hinweis, wenn du in der Nähe eines Ladens bist</h3>
+      <p class="muted" style="margin:0">Webseiten dürfen deinen Standort im Hintergrund nicht verfolgen. Das übernimmt die Kurzbefehle-App deines iPhones: Sie ruft beim Ankommen am Laden deinen persönlichen Link auf, und du bekommst „Was noch zu besorgen wäre: …“.</p>
+      <div class="f"><label for="shortUrl">Dein persönlicher Link (nicht weitergeben)</label>
+        <div class="add-row"><input id="shortUrl" readonly><button class="btn" type="button" id="copyUrl">Kopieren</button></div></div>
+      <ol class="steps">
+        <li>App <b>Kurzbefehle</b> öffnen → <b>Automation</b> → <b>+</b> → <b>Ankommen</b>.</li>
+        <li>Bei <b>Ort</b> deinen Laden suchen (z. B. Rewe in deiner Straße), Radius klein lassen. <b>Sofort ausführen</b> wählen.</li>
+        <li><b>Neue leere Automation</b> → Aktion <b>Inhalte von URL abrufen</b> hinzufügen und deinen Link einfügen. Ersetze am Ende <code>Laden</code> durch den Namen, z. B. <code>laden=Rewe</code>.</li>
+        <li>Fertig. Für jeden weiteren Laden die Automation wiederholen.</li>
+      </ol>
+      <p class="muted" style="margin:0;font-size:.85rem">Android: Mit einer App wie „Tasker“ oder „MacroDroid“ geht das genauso (Standort-Auslöser → HTTP-Aufruf dieses Links).</p>
+    </section>
+    <div style="display:flex;justify-content:flex-end"><button class="btn" type="button" id="pushClose">Schließen</button></div>
+  </div>
 </dialog>
 
 <dialog id="pwDlg">
@@ -545,7 +584,7 @@ $("expForm").addEventListener("submit",async ev=>{
   const paid=$("ePaid").value;
   const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:$("eCat").value,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today(),pocket_id:S.pocket};
   try{await q(S.sb.from("expenses").insert(row));await loadExp();
-    $("eDesc").value="";$("eAmt").value="";S.split="half";renderSplit();toast("Ausgabe eingetragen");$("eDesc").focus();
+    $("eDesc").value="";$("eAmt").value="";S.split="half";renderSplit();toast("Ausgabe eingetragen");notify(`${nm(S.me)} hat eine Ausgabe eingetragen`,`${row.descr}: ${eur(row.cents)} · ${pocketName(row.pocket_id)}`,"#ausgaben","ausgabe");$("eDesc").focus();
   }catch(e){writeErr(e)}finally{busy=false;$("expSubmit").disabled=false}
 });
 $("expList").addEventListener("click",async ev=>{
@@ -566,7 +605,7 @@ $("settleForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
   const cents=parseCents($("sAmt").value);if(!(cents>0)){toast("Bitte einen gültigen Betrag eingeben.");return}
   const debtor=$("settleDlg").dataset.debtor;$("settleDlg").close();
-  try{await q(S.sb.from("expenses").insert({kind:"settle",descr:`Ausgleich: ${nm(debtor)} an ${nm(other(debtor))}`,cents,paid_by:debtor,share_a:50,date:today(),pocket_id:S.pocket}));await loadExp();toast("Zahlung eingetragen")}catch(e){writeErr(e)}
+  try{await q(S.sb.from("expenses").insert({kind:"settle",descr:`Ausgleich: ${nm(debtor)} an ${nm(other(debtor))}`,cents,paid_by:debtor,share_a:50,date:today(),pocket_id:S.pocket}));await loadExp();toast("Zahlung eingetragen");notify(`${nm(debtor)} hat ${eur(cents)} zurückgezahlt`,`Pocket ${pocketName(S.pocket)}: ${nm(debtor)} an ${nm(other(debtor))}`,"#ausgaben","ausgleich")}catch(e){writeErr(e)}
 });
 
 /* names */
@@ -579,6 +618,74 @@ $("namesForm").addEventListener("submit",async ev=>{
   $("namesDlg").close();
   try{await q(S.sb.from("settings").update({name_a:a,name_b:b,names_set:true}).eq("id",1));await loadNames();toast("Namen gespeichert")}catch(e){writeErr(e)}
 });
+
+/* push */
+const FN_URL="https://ckytrjxyplgqpphgmzvu.supabase.co/functions/v1/push";
+function notify(title,body,hash,tag){
+  if(!S.sb)return;
+  S.sb.functions.invoke("push",{body:{action:"notify",title,body,hash,tag}}).catch(e=>console.warn("push",e));
+}
+let pendingShop=[],shopTimer=null;
+function queueShopNotify(t){
+  pendingShop.push(t);clearTimeout(shopTimer);shopTimer=setTimeout(flushShop,12000);
+}
+function flushShop(){
+  if(!pendingShop.length)return;
+  const items=pendingShop;pendingShop=[];clearTimeout(shopTimer);
+  notify(`${nm(S.me)} hat ${items.length===1?"etwas":items.length+" Sachen"} auf die Einkaufsliste gesetzt`,items.join(", "),"#einkauf","einkauf");
+}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)flushShop()});
+const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+function b64u(s){const p="=".repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+async function currentSub(){if(!pushSupported())return null;const r=await navigator.serviceWorker.getRegistration();return r?r.pushManager.getSubscription():null}
+async function renderPush(){
+  $("pushOther").textContent=nm(other(S.me));
+  const hint=$("pushHint");hint.hidden=true;
+  if(!pushSupported()){
+    hint.hidden=false;
+    hint.textContent=isIOS&&!standalone()?"Auf dem iPhone funktionieren Push-Mitteilungen nur, wenn die Haushaltskasse auf dem Home-Bildschirm liegt: In Safari auf Teilen → „Zum Home-Bildschirm“, dann die App von dort öffnen und hier Push aktivieren.":"Dieser Browser unterstützt keine Push-Mitteilungen. Probiere Chrome, Edge, Firefox oder Safari (iPhone: als App auf dem Home-Bildschirm).";
+    $("pushOn").hidden=true;$("pushTest").hidden=true;$("pushOff").hidden=true;$("pushState").textContent="";return;
+  }
+  const sub=await currentSub().catch(()=>null);
+  const denied=Notification.permission==="denied";
+  $("pushState").textContent=denied?"Mitteilungen sind für diese Seite blockiert. Erlaube sie in den Einstellungen des Browsers bzw. des iPhones (Einstellungen → Mitteilungen → Haushaltskasse).":sub?"Push ist auf diesem Gerät aktiv.":"Push ist auf diesem Gerät noch aus.";
+  $("pushOn").hidden=!!sub||denied;$("pushTest").hidden=!sub;$("pushOff").hidden=!sub;
+}
+async function loadToken(){
+  try{const r=await q(S.sb.from("member_tokens").select("token").maybeSingle());$("shortUrl").value=r?`${FN_URL}?t=${r.token}&laden=Laden`:"Link nicht verfügbar"}catch(e){$("shortUrl").value="Link konnte nicht geladen werden"}
+}
+$("editPush").onclick=()=>{renderPush();loadToken();$("pushDlg").showModal()};
+$("pushClose").onclick=()=>$("pushDlg").close();
+$("pushOn").onclick=async()=>{
+  const btn=$("pushOn");btn.disabled=true;
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted"){toast("Ohne Erlaubnis kann die App keine Mitteilungen schicken.");return}
+    const reg=await navigator.serviceWorker.register("sw.js");await navigator.serviceWorker.ready;
+    const {publicKey}=await fetch(FN_URL+"?action=vapid").then(r=>r.json());
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(publicKey)});
+    const j=sub.toJSON();
+    await q(S.sb.from("push_subscriptions").upsert({endpoint:j.endpoint,person:S.me,p256dh:j.keys.p256dh,auth:j.keys.auth,user_agent:navigator.userAgent.slice(0,200)},{onConflict:"endpoint"}));
+    toast("Push ist aktiv");
+  }catch(e){console.error(e);toast("Push konnte nicht aktiviert werden: "+(e.message||e))}
+  finally{btn.disabled=false;renderPush()}
+};
+$("pushTest").onclick=async()=>{
+  const {data,error}=await S.sb.functions.invoke("push",{body:{action:"test"}});
+  toast(error?"Test hat nicht geklappt.":data&&data.sent?"Test geschickt – gleich sollte eine Mitteilung erscheinen.":"Kein aktives Gerät gefunden. Schalte Push aus und wieder an.");
+};
+$("pushOff").onclick=async()=>{
+  try{const sub=await currentSub();if(sub){await q(S.sb.from("push_subscriptions").delete().eq("endpoint",sub.endpoint));await sub.unsubscribe()}toast("Push auf diesem Gerät ausgeschaltet")}catch(e){writeErr(e)}
+  renderPush();
+};
+$("copyUrl").onclick=async()=>{
+  const v=$("shortUrl").value;
+  try{await navigator.clipboard.writeText(v);toast("Link kopiert")}catch(e){$("shortUrl").select();toast("Markiert – jetzt kopieren")}
+};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 /* reload */
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
@@ -601,7 +708,7 @@ $("shopForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
   const t=$("shopIn").value.trim();if(!t||!S.sb)return;
   $("shopIn").value="";
-  try{await q(S.sb.from("shopping").insert({text:t,added_by:S.me}));await loadShop()}catch(e){$("shopIn").value=t;writeErr(e)}
+  try{await q(S.sb.from("shopping").insert({text:t,added_by:S.me}));queueShopNotify(t);await loadShop()}catch(e){$("shopIn").value=t;writeErr(e)}
 });
 document.querySelector("#p-einkauf").addEventListener("change",async ev=>{
   const c=ev.target.closest("[data-chk]");if(!c)return;
