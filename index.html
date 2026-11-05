@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F2F4F7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kasse">
 <title>Haushaltskasse</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -145,6 +151,8 @@ dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface)
 .login-card{display:flex;flex-direction:column;gap:14px}
 .err{color:var(--danger);margin:0;font-size:.9rem}
 .login-form{display:flex;flex-direction:column;gap:12px}
+.remember{display:flex;align-items:center;gap:8px;font-size:.9rem;cursor:pointer;flex-wrap:wrap}
+.login-form .remember input{width:20px;height:20px;flex:none;accent-color:var(--accent);margin:0;padding:0}
 .login-form input{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:10px 11px;width:100%}
 .pockets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;margin-inline:-2px;padding-inline:2px}
 .pocket{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px;min-width:7.5rem;text-align:left}
@@ -169,7 +177,8 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     <p class="muted" style="margin:0">Melde dich mit deiner E-Mail-Adresse an.</p>
     <form id="loginForm" class="login-form" autocomplete="on">
       <div class="f"><label for="em">E-Mail</label><input id="em" type="email" name="username" autocomplete="username" required></div>
-      <div class="f"><label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" required></div>
+      <div class="f"><label for="pw">Passwort</label><input id="pw" type="password" name="password" autocomplete="current-password" required></div>
+      <label class="remember" for="remember"><input type="checkbox" id="remember" checked> Login speichern <span class="muted">(angemeldet bleiben, E-Mail merken)</span></label>
       <button class="btn primary" id="loginBtn" type="submit">Anmelden</button>
     </form>
     <p id="loginErr" class="err" hidden></p>
@@ -653,11 +662,20 @@ async function loadAll(){
   }
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.sb&&$("app").hidden===false)loadAll()});
-function showLogin(show){$("login").hidden=!show;$("app").hidden=show}
+function showLogin(show){$("login").hidden=!show;$("app").hidden=show;if(show){const e=ls.get("hk-email");if(e)$("em").value=e;$("remember").checked=ls.get("hk-remember")!=="0";(e?$("pw"):$("em")).focus()}}
+// Sitzung: bei "Login speichern" im localStorage (bleibt), sonst nur im sessionStorage (endet mit dem Tab)
+const ss={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
+const authStorage={
+  getItem:k=>ls.get(k)??ss.get(k),
+  setItem:(k,v)=>{if(ls.get("hk-remember")==="0"){ss.set(k,v);try{localStorage.removeItem(k)}catch(e){}}else{ls.set(k,v);ss.del(k)}},
+  removeItem:k=>{try{localStorage.removeItem(k)}catch(e){}ss.del(k)}
+};
 $("loginForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
   const pw=$("pw").value,em=$("em").value.trim().toLowerCase();if(!pw||!em)return;
   $("loginBtn").disabled=true;$("loginErr").hidden=true;
+  const keep=$("remember").checked;ls.set("hk-remember",keep?"1":"0");
+  if(keep)ls.set("hk-email",em);else{try{localStorage.removeItem("hk-email")}catch(e){}}
   const {error}=await S.sb.auth.signInWithPassword({email:em,password:pw});
   $("loginBtn").disabled=false;
   if(error){$("loginErr").textContent=/invalid/i.test(error.message)?"E-Mail oder Passwort stimmt nicht.":"Anmeldung fehlgeschlagen: "+error.message;$("loginErr").hidden=false;return}
@@ -667,7 +685,7 @@ $("logout").onclick=async()=>{if(channel){S.sb.removeChannel(channel);channel=nu
 async function start(){
   route();renderAll();
   if(!window.supabase){setStatus("Die Datenbank-Bibliothek konnte nicht geladen werden. Prüfe die Internetverbindung.");return}
-  S.sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  S.sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storage:authStorage}});
   const {data:{session}}=await S.sb.auth.getSession();
   if(session){showLogin(false);loadAll()}else showLogin(true);
 }
