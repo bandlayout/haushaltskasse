@@ -1,6 +1,6 @@
 {
-  "name": "Haushaltskasse",
-  "short_name": "Kasse",
+  "name": "Einkaufi - Ausgebi",
+  "short_name": "Einkaufi",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

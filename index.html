@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Kasse">
-<title>Haushaltskasse</title>
+<meta name="apple-mobile-web-app-title" content="Einkaufi">
+<title>Einkaufi - Ausgebi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
@@ -168,9 +168,6 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
   box-shadow:0 0 10px color-mix(in srgb,var(--n1) 70%,transparent),0 0 26px color-mix(in srgb,var(--n2) 55%,transparent),inset 0 0 18px color-mix(in srgb,var(--n2) 35%,transparent)}
 .fab.shop{--n1:#FF2BD6;--n2:#00E5FF}
 .fab svg{width:48%;height:48%;overflow:visible;filter:drop-shadow(0 0 3px var(--n1)) drop-shadow(0 0 8px var(--n2))}
-.fab:active{transform:scale(.95)}
-.fab:hover{filter:brightness(1.12)}
-@media (prefers-reduced-motion:no-preference){.fab{transition:transform .12s ease,filter .12s ease}}
 .add-hero .lbl{font-weight:600;color:var(--muted);font-size:.9rem}
 #shopDlg ul.list{max-height:40vh;overflow-y:auto}
 /* reload button top right */
@@ -224,7 +221,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 
 <div class="wrap login" id="login" hidden>
   <div class="card login-card">
-    <h1>Haushaltskasse</h1>
+    <h1>Einkaufi - Ausgebi</h1>
     <p class="muted" style="margin:0">Melde dich mit deiner E-Mail-Adresse an.</p>
     <form id="loginForm" class="login-form" autocomplete="on">
       <div class="f"><label for="em">E-Mail</label><input id="em" type="email" name="username" autocomplete="username" required></div>
@@ -237,12 +234,10 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 </div>
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <h1>Haushaltskasse</h1>
-    <button class="reload" id="reloadTop" type="button" title="Neu laden" aria-label="Neueste Version der App laden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
+    <h1>Einkaufi - Ausgebi</h1>
   </header>
 
 
-  <div id="status" class="notice">Daten werden geladen …</div>
 
   <div class="add-hero">
     <div class="one">
@@ -311,6 +306,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
   </section>
 
   <footer class="foot-info">
+    <div id="status" class="notice">Daten werden geladen …</div>
     <section class="slip" aria-live="polite">
       <div class="label" id="slipLabel">Kontostand</div>
       <div class="verdict" id="verdict">Alles ausgeglichen</div>
@@ -742,7 +738,7 @@ async function renderPush(){
   const hint=$("pushHint");hint.hidden=true;
   if(!pushSupported()){
     hint.hidden=false;
-    hint.textContent=isIOS&&!standalone()?"Auf dem iPhone funktionieren Push-Mitteilungen nur, wenn die Haushaltskasse auf dem Home-Bildschirm liegt: In Safari auf Teilen → „Zum Home-Bildschirm“, dann die App von dort öffnen und hier Push aktivieren.":"Dieser Browser unterstützt keine Push-Mitteilungen. Probiere Chrome, Edge, Firefox oder Safari (iPhone: als App auf dem Home-Bildschirm).";
+    hint.textContent=isIOS&&!standalone()?"Auf dem iPhone funktionieren Push-Mitteilungen nur, wenn die App auf dem Home-Bildschirm liegt: In Safari auf Teilen → „Zum Home-Bildschirm“, dann die App von dort öffnen und hier Push aktivieren.":"Dieser Browser unterstützt keine Push-Mitteilungen. Probiere Chrome, Edge, Firefox oder Safari (iPhone: als App auf dem Home-Bildschirm).";
     $("pushOn").hidden=true;$("pushTest").hidden=true;$("pushOff").hidden=true;$("pushState").textContent="";return;
   }
   const sub=await currentSub().catch(()=>null);
@@ -786,7 +782,6 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 
 /* reload */
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
-$("reloadTop").onclick=()=>{$("reloadTop").classList.add("spin");location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 
 /* password */
 $("editPw").onclick=()=>{$("pw1").value="";$("pw2").value="";$("pwDlg").showModal()};
@@ -860,7 +855,7 @@ let channel=null,debounce={};
 const later=(k,fn)=>{clearTimeout(debounce[k]);debounce[k]=setTimeout(()=>fn().catch(writeErr),150)};
 async function loadAll(){
   setStatus("Daten werden geladen …");
-  try{await loadMe()}catch(e){console.error(e);setStatus("Dieses Konto gehört nicht zur Haushaltskasse. Melde dich ab und mit einer der beiden freigeschalteten E-Mail-Adressen wieder an.");return}
+  try{await loadMe()}catch(e){console.error(e);setStatus("Dieses Konto gehört nicht zu dieser App. Melde dich ab und mit einer der beiden freigeschalteten E-Mail-Adressen wieder an.");return}
   try{await Promise.all([loadNames(),loadPockets(),loadExp(),loadShop()]);setStatus("");if(!S.namesSet)openNames()}
   catch(e){console.error(e);setStatus("Die Daten konnten nicht geladen werden. Prüfe die Verbindung und lade die Seite neu.")}
   if(!channel){
