@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#F3F6F7">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg?v=4" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon-180.png?v=4">
+<link rel="icon" href="icon.svg?v=5" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png?v=5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Einkaufi">
@@ -1054,10 +1054,11 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-9";
+const APP_VERSION="2026-11-06-10";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
+  "Neues Logo: Einkaufswagen mit Plus in den neuen Farben.",
   "„Einkauf“ heißt jetzt „Einkaufsliste“.",
   "Beim Öffnen ist das Zahlenfeld für den Betrag sofort da."
 ];
