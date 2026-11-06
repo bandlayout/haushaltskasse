@@ -179,7 +179,22 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 @media (prefers-reduced-motion:reduce){.reload.spin svg{animation:none}}
 /* expense sheet */
 #expDlg{width:min(560px,calc(100% - 16px));padding:18px}
-#expDlg form.grid{display:grid}
+#expDlg form.wiz{display:flex;flex-direction:column;gap:14px}
+.wiz-count{flex:1;text-align:center;font-size:.82rem;font-weight:600;color:var(--muted)}
+.wiz-progress{display:flex;gap:6px}
+.wiz-progress span{flex:1;height:4px;border-radius:999px;background:var(--sunk)}
+.wiz-progress span.on{background:var(--neon);box-shadow:0 0 6px rgb(0 229 255 / .45)}
+.wiz-sum{display:flex;flex-wrap:wrap;gap:6px}
+.wiz-sum .tag{font-size:.8rem;padding:3px 10px;margin:0}
+.step{display:flex;flex-direction:column;gap:14px}
+.step-q{font-family:var(--f-display);font-size:1.35rem;font-weight:800;margin:0;color:var(--ink)}
+.cat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 8px;padding-block:4px}
+.cat-pick{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;padding:0;font-weight:600;font-size:.85rem;color:var(--ink);cursor:pointer;touch-action:manipulation}
+.cat-pick .cat-tile{width:68px;pointer-events:none}
+.cat-pick:active .cat-tile{transform:scale(.94)}
+.wiz-next{padding:13px;font-size:1rem}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pair>*{min-width:0}
 .dlg-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
 #eAmt{font-size:1.6rem;padding:12px}
 .f.hl label{color:var(--ink);font-size:.8rem}
@@ -336,31 +351,57 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 </div>
 
 <dialog id="expDlg" aria-labelledby="expTitle">
-  <form class="grid" id="expForm" autocomplete="off">
-        <div class="dlg-h c6"><h2 id="expTitle">Neue Ausgabe</h2><button class="btn small" type="button" id="expCancel">Abbrechen</button></div>
-        <div class="f c6"><label id="eCatLbl">Kategorie</label><div class="cat-tiles" id="eCatTiles" role="group" aria-labelledby="eCatLbl"></div><div class="cat-name" id="eCatName" aria-live="polite"></div></div>
-        <div class="f c6 hl"><label for="eAmt">Betrag (€)</label><input id="eAmt" class="amount-in" required inputmode="decimal" placeholder="0,00"></div>
-        <div class="f c6 hl"><label for="eDesc">Wofür?</label><input id="eDesc" required maxlength="80" placeholder="z. B. Wocheneinkauf Rewe"></div>
-        <div class="f c2"><label for="ePaid">Bezahlt von</label><select id="ePaid"><option value="a">A</option><option value="b">B</option></select></div>
-        <div class="f c2"><label for="eDate">Datum</label><input id="eDate" type="date" required></div>
-        <div class="f c6"><label>Aufteilung</label>
-          <div class="split-row">
-            <div class="seg" id="splitSeg" role="group" aria-label="Aufteilung">
-              <button type="button" id="sp-half" data-split="half" aria-pressed="true">Halbe-halbe</button>
-              <button type="button" id="sp-full" data-split="full" aria-pressed="false">Ganz für B</button>
-              <button type="button" id="sp-custom" data-split="custom" aria-pressed="false">Eigene</button>
-            </div>
-            <div class="custom" id="customBox" hidden>
-              <span class="pa" id="cLabA">A 50 %</span>
-              <input type="range" id="eShare" min="0" max="100" step="5" value="50" aria-label="Anteil A in Prozent">
-              <span class="pb" id="cLabB">B 50 %</span>
+  <form class="wiz" id="expForm" autocomplete="off" novalidate>
+        <div class="dlg-h">
+          <button class="btn small" type="button" id="wizBack" hidden>← Zurück</button>
+          <span class="wiz-count" id="expTitle">Schritt 1 von 4</span>
+          <button class="btn small" type="button" id="expCancel">Abbrechen</button>
+        </div>
+        <div class="wiz-progress" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="wiz-sum" id="wizSum" hidden></div>
+
+        <section class="step" data-step="1">
+          <h2 class="step-q" id="eCatLbl">Welche Kategorie?</h2>
+          <div class="cat-grid" id="eCatTiles" role="group" aria-labelledby="eCatLbl"></div>
+        </section>
+
+        <section class="step" data-step="2" hidden>
+          <label class="step-q" for="eAmt">Wie viel?</label>
+          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" placeholder="0,00 €" enterkeyhint="next"></div>
+          <button class="btn primary wiz-next" type="submit">Weiter</button>
+        </section>
+
+        <section class="step" data-step="3" hidden>
+          <label class="step-q" for="eDesc">Wofür?</label>
+          <div class="f hl"><input id="eDesc" maxlength="80" placeholder="z. B. Wocheneinkauf Rewe" enterkeyhint="next"></div>
+          <button class="btn primary wiz-next" type="submit">Weiter</button>
+        </section>
+
+        <section class="step" data-step="4" hidden>
+          <h2 class="step-q">Wie wird aufgeteilt?</h2>
+          <div class="pair">
+            <div class="f"><label for="ePaid">Bezahlt von</label><select id="ePaid"><option value="a">A</option><option value="b">B</option></select></div>
+            <div class="f"><label for="eDate">Datum</label><input id="eDate" type="date"></div>
+          </div>
+          <div class="f"><label>Aufteilung</label>
+            <div class="split-row">
+              <div class="seg" id="splitSeg" role="group" aria-label="Aufteilung">
+                <button type="button" id="sp-half" data-split="half" aria-pressed="true">Halbe-halbe</button>
+                <button type="button" id="sp-full" data-split="full" aria-pressed="false">Ganz für B</button>
+                <button type="button" id="sp-custom" data-split="custom" aria-pressed="false">Eigene</button>
+              </div>
+              <div class="custom" id="customBox" hidden>
+                <span class="pa" id="cLabA">A 50 %</span>
+                <input type="range" id="eShare" min="0" max="100" step="5" value="50" aria-label="Anteil A in Prozent">
+                <span class="pb" id="cLabB">B 50 %</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="form-foot c6">
-          <span class="muted" id="preview" style="min-width:0"></span>
-          <button class="btn primary" id="expSubmit" type="submit">Ausgabe eintragen</button>
-        </div>
+          <div class="form-foot">
+            <span class="muted" id="preview" style="min-width:0"></span>
+            <button class="btn primary" id="expSubmit" type="submit">Ausgabe eintragen</button>
+          </div>
+        </section>
   </form>
 </dialog>
 
@@ -538,9 +579,7 @@ const CAT_ICONS={
 };
 const catIcon=id=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CAT_ICONS[id]||'<circle cx="12" cy="12" r="5"/>'}</svg>`;
 function renderCatTiles(){
-  const t=$("eCatTiles");
-  t.innerHTML=S.pockets.map(p=>`<button type="button" class="cat-tile" data-newpocket="${esc(p.id)}" aria-pressed="${p.id===S.newPocket}" aria-label="${esc(p.name)}" title="${esc(p.name)}">${catIcon(p.id)}</button>`).join("");
-  $("eCatName").textContent=S.newPocket?pocketName(S.newPocket):"";
+  $("eCatTiles").innerHTML=S.pockets.map(p=>`<button type="button" class="cat-pick" data-newpocket="${esc(p.id)}"><span class="cat-tile" aria-pressed="${p.id===S.newPocket}">${catIcon(p.id)}</span><span>${esc(p.name)}</span></button>`).join("");
 }
 function renderSplit(){
   const paid=$("ePaid").value,o=other(paid);
@@ -657,17 +696,44 @@ document.querySelectorAll("[data-tab]").forEach(a=>a.addEventListener("click",ev
 $("eDate").value=today();
 $("ePaid").value=S.me;
 ["fCat","oCat"].forEach(id=>$(id).addEventListener("change",()=>{S.pocket=$(id).value;renderBalance();renderExpenses();renderOverview()}));
-$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles()});
+$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles();setTimeout(()=>showStep(2),140)});
 document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{S.split=b.dataset.split;renderSplit()});
 ["ePaid","eShare","eAmt"].forEach(id=>$(id).addEventListener("input",renderSplit));
 $("fMonth").addEventListener("change",renderExpenses);
 $("expFold").onclick=()=>{S.expOpen=!S.expOpen;renderExpenses()};
 $("oMonth").addEventListener("change",renderOverview);
 
+/* Ausgabe in 4 Schritten: Kategorie → Betrag → Wofür → Aufteilung */
+let step=1;
+function showStep(n){
+  step=n;
+  for(const s of document.querySelectorAll("#expForm .step"))s.hidden=+s.dataset.step!==n;
+  document.querySelectorAll(".wiz-progress span").forEach((s,i)=>s.classList.toggle("on",i<n));
+  $("expTitle").textContent=`Schritt ${n} von 4`;
+  $("wizBack").hidden=n===1;
+  const parts=[];
+  if(n>1&&S.newPocket)parts.push(pocketName(S.newPocket));
+  const c=parseCents($("eAmt").value);if(n>2&&c>0)parts.push(eur(c));
+  if(n>3&&$("eDesc").value.trim())parts.push($("eDesc").value.trim());
+  $("wizSum").innerHTML=parts.map(p=>`<span class="tag">${esc(p)}</span>`).join("");
+  $("wizSum").hidden=!parts.length;
+  if(n===4)renderSplit();
+  setTimeout(()=>{if(n===2)$("eAmt").focus();else if(n===3)$("eDesc").focus();else if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()},60);
+}
+function nextStep(){
+  if(step===2){
+    if(!(parseCents($("eAmt").value)>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");$("eAmt").focus();return}
+    showStep(3);
+  }else if(step===3){
+    if(!$("eDesc").value.trim()){toast("Bitte kurz eintragen, wofür das war.");$("eDesc").focus();return}
+    showStep(4);
+  }
+}
+$("wizBack").onclick=()=>{if(step>1)showStep(step-1)};
 function openExp(){
-  $("eDate").value=today();$("ePaid").value=S.me;S.split="half";renderSplit();
-  S.newPocket=S.pockets.some(p=>p.id==="lebensmittel")?"lebensmittel":(S.pockets[0]||{}).id||"";
-  renderCatTiles();
+  $("eDate").value=today();$("ePaid").value=S.me;S.split="half";$("eShare").value=50;
+  $("eAmt").value="";$("eDesc").value="";S.newPocket="";
+  renderSplit();renderCatTiles();showStep(1);
   $("expDlg").showModal();
 }
 $("addBtn").onclick=openExp;
@@ -675,10 +741,11 @@ $("expCancel").onclick=()=>$("expDlg").close();
 let busy=false;
 $("expForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
+  if(step<4){nextStep();return}
   if(!S.sb){toast("Bitte zuerst anmelden.");return}
   const cents=parseCents($("eAmt").value);
-  if(!S.newPocket){toast("Bitte oben eine Kategorie antippen.");return}
-  if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");$("eAmt").focus();return}
+  if(!S.newPocket){toast("Bitte eine Kategorie antippen.");showStep(1);return}
+  if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");showStep(2);return}
   if(busy)return;busy=true;$("expSubmit").disabled=true;
   const paid=$("ePaid").value;
   const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:null,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today(),pocket_id:S.newPocket};
@@ -794,6 +861,27 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 
 /* reload */
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
+/* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
+   wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
+const APP_VERSION="2026-11-06-2";
+try{if(/[?&]v=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash)}catch(_){}
+let updChecking=false;
+async function checkUpdate(){
+  if(updChecking||!navigator.onLine)return;updChecking=true;
+  try{
+    const r=await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"});
+    const m=(await r.text()).match(/const APP_VERSION="([^"]+)"/);
+    if(m&&m[1]!==APP_VERSION){
+      if(document.querySelector("dialog[open]")){S.updatePending=true;return}
+      location.replace(location.pathname+"?v="+encodeURIComponent(m[1])+location.hash);
+    }
+  }catch(_){}finally{updChecking=false}
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkUpdate()});
+addEventListener("pageshow",ev=>{if(ev.persisted)checkUpdate()});
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",()=>{if(S.updatePending){S.updatePending=false;checkUpdate()}}));
+setTimeout(checkUpdate,1500);
+setInterval(()=>{if(document.visibilityState==="visible")checkUpdate()},5*60*1000);
 
 /* password */
 $("editPw").onclick=()=>{$("pw1").value="";$("pw2").value="";$("pwDlg").showModal()};

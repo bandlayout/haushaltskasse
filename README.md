@@ -11,3 +11,5 @@ Gemeinsame Ausgaben für zwei Personen erfassen, sehen wer wem was schuldet, und
 Der Schlüssel in `index.html` ist der öffentliche „publishable key“ und darf im Code stehen. Das Passwort steht nicht im Code.
 
 Passwort ändern: in der App oben auf „Passwort ändern“.
+
+Updates: In `index.html` steht `APP_VERSION`. Bei jeder Änderung hochzählen – die installierte App prüft beim Öffnen bzw. wenn sie wieder in den Vordergrund kommt, ob eine neuere Version da ist, und lädt sich dann selbst neu. Kein Neu-Hinzufügen zum Homescreen nötig.
