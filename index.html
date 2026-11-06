@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#F2F4F7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg?v=2" type="image/svg+xml">
@@ -242,6 +242,8 @@ dialog.wide{width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px)}
 .steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
 .steps code,.dsec code{font-family:var(--f-num);font-size:.82rem;background:var(--sunk);padding:1px 5px;border-radius:5px}
 #shortUrl{font-family:var(--f-num);font-size:.78rem}
+/* Dialoge immer im sichtbaren Bereich über der Tastatur halten (Werte setzt fitDialogs) */
+dialog[open].kb-fit{position:fixed;margin:0 auto;inset:auto 0 auto 0;top:var(--dlg-top,8px);max-height:var(--dlg-max,calc(100% - 16px));overflow:auto;overscroll-behavior:contain}
 dialog::backdrop{background:rgb(26 16 51 / .45)}
 dialog form{display:flex;flex-direction:column;gap:12px}
 @media (prefers-reduced-motion:no-preference){.bar span,.track span{transition:width .35s ease}}
@@ -824,6 +826,42 @@ function openExpOnLaunch(){
   // Manche Geräte geben den Fokus erst frei, wenn die Seite fertig gezeichnet ist
   requestAnimationFrame(()=>setTimeout(focusAmt,50));
 }
+/* ---------- Tastatur darf nie ein Eingabefeld verdecken ----------
+   iOS schiebt die Tastatur über die Seite, ohne sie zu verkleinern. Deshalb wird der gerade
+   sichtbare Bereich (visualViewport) gemessen: offene Dialoge passen sich in diesen Bereich ein,
+   und das aktive Eingabefeld wird bei Bedarf in die Mitte gescrollt. */
+const VV=window.visualViewport;
+const isField=el=>el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.tagName==="SELECT"||el.isContentEditable);
+function fitDialogs(){
+  const top=VV?VV.offsetTop:0,h=VV?VV.height:innerHeight;
+  for(const d of document.querySelectorAll("dialog[open]")){
+    d.classList.add("kb-fit");
+    d.style.setProperty("--dlg-max",Math.max(120,h-16)+"px");
+    const dh=Math.min(d.scrollHeight+2,h-16);
+    d.style.setProperty("--dlg-top",Math.round(top+Math.max(8,(h-dh)/2))+"px");
+  }
+}
+function revealField(){
+  const el=document.activeElement;if(!isField(el))return;
+  const r=el.getBoundingClientRect();
+  const top=VV?VV.offsetTop:0,bottom=top+(VV?VV.height:innerHeight);
+  if(r.top>=top+8&&r.bottom<=bottom-8)return;
+  const box=el.closest("dialog[open]");
+  if(box){box.scrollTop+=r.top-(top+(bottom-top)/2)+r.height/2}
+  else el.scrollIntoView({block:"center",behavior:"auto"});
+}
+let vvRaf=0;
+function onViewport(){cancelAnimationFrame(vvRaf);vvRaf=requestAnimationFrame(()=>{fitDialogs();revealField()})}
+if(VV){VV.addEventListener("resize",onViewport);VV.addEventListener("scroll",onViewport)}
+addEventListener("resize",onViewport);
+// Tastatur braucht einen Moment zum Hochfahren: kurz danach nochmal prüfen
+document.addEventListener("focusin",ev=>{if(isField(ev.target)){onViewport();setTimeout(onViewport,300);setTimeout(onViewport,600)}});
+// Dialoge beim Öffnen sofort einpassen (auch wenn sich ihr Inhalt ändert, z. B. Schrittwechsel)
+const dlgObs=new MutationObserver(onViewport);
+document.querySelectorAll("dialog").forEach(d=>{
+  new MutationObserver(()=>{if(d.open)onViewport();else d.classList.remove("kb-fit")}).observe(d,{attributes:true,attributeFilter:["open"]});
+  dlgObs.observe(d,{subtree:true,childList:true,attributes:true,attributeFilter:["hidden"]});
+});
 let hiddenAt=0;
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){hiddenAt=Date.now();return}
@@ -980,11 +1018,12 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-5";
+const APP_VERSION="2026-11-06-6";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Beim Öffnen startet die App direkt beim Eintragen einer Ausgabe – einfach den Betrag tippen.",
-  "Mit „Abbrechen“ geht es zur Übersicht."
+  "Mit „Abbrechen“ geht es zur Übersicht.",
+  "Die Tastatur verdeckt nie mehr das Feld, in das du gerade tippst."
 ];
 function announceVersion(){
   const seen=ls.get("hk-ver");
