@@ -193,6 +193,19 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .cat-pick .cat-tile{width:68px;pointer-events:none}
 .cat-pick:active .cat-tile{transform:scale(.94)}
 .wiz-next{padding:13px;font-size:1rem}
+/* Betrag-Schritt: Auto oder selbst eintragen */
+.amt-actions{display:grid;grid-template-columns:3fr 2fr;gap:10px}
+.amt-actions>*{min-width:0}
+.auto-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;text-align:left}
+.auto-btn .big{font-family:var(--f-display);font-size:1.2rem;font-weight:800}
+.auto-btn .sub{font-size:.78rem;font-weight:600;overflow-wrap:anywhere}
+.auto-hint{font-size:.8rem;margin:0}
+#autoDlg .seg{flex-wrap:wrap}
+/* Hinweis auf neue Version */
+.update{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);border:2px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--neon) border-box;box-shadow:var(--glow)}
+.update .ub{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.update b{font-family:var(--f-display);font-size:1rem}
+.update ul{margin:0;padding-left:18px;font-size:.88rem}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pair>*{min-width:0}
 .dlg-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -254,6 +267,11 @@ dialog form{display:flex;flex-direction:column;gap:12px}
   <header class="top">
     <h1>Einkaufi - Ausgebi</h1>
   </header>
+
+  <div class="update" id="updBanner" role="status" hidden>
+    <div class="ub"><b>Neue Version geladen</b><ul id="updList"></ul></div>
+    <button class="btn small" type="button" id="updOk">Verstanden</button>
+  </div>
 
 
 
@@ -341,6 +359,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       </div>
     </section>
     <div class="who"><span>Angemeldet als <b id="meName">…</b></span>
+      <button class="x" id="editAuto" type="button">Auto-Einstellungen</button>
       <button class="x" id="editNames" type="button">Namen</button>
       <button class="x" id="editPush" type="button">Benachrichtigungen</button>
       <button class="x" id="editPw" type="button">Passwort ändern</button>
@@ -361,14 +380,18 @@ dialog form{display:flex;flex-direction:column;gap:12px}
         <div class="wiz-sum" id="wizSum" hidden></div>
 
         <section class="step" data-step="1">
-          <h2 class="step-q" id="eCatLbl">Welche Kategorie?</h2>
-          <div class="cat-grid" id="eCatTiles" role="group" aria-labelledby="eCatLbl"></div>
+          <label class="step-q" for="eAmt">Wie viel?</label>
+          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" placeholder="0,00 €" enterkeyhint="done"></div>
+          <div class="amt-actions">
+            <button class="btn primary auto-btn" type="button" id="autoBtn"><span class="big">Auto</span><span class="sub" id="autoSub"></span></button>
+            <button class="btn wiz-next" type="submit">Selbst eintragen</button>
+          </div>
+          <p class="muted auto-hint">Auto trägt sofort mit euren Voreinstellungen ein. Ändern unten bei „Auto-Einstellungen“.</p>
         </section>
 
         <section class="step" data-step="2" hidden>
-          <label class="step-q" for="eAmt">Wie viel?</label>
-          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" placeholder="0,00 €" enterkeyhint="next"></div>
-          <button class="btn primary wiz-next" type="submit">Weiter</button>
+          <h2 class="step-q" id="eCatLbl">Welche Kategorie?</h2>
+          <div class="cat-grid" id="eCatTiles" role="group" aria-labelledby="eCatLbl"></div>
         </section>
 
         <section class="step" data-step="3" hidden>
@@ -413,6 +436,33 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       <button class="btn primary" type="submit">Hinzufügen</button>
     </div>
     <ul class="list shop" id="shopDlgList"></ul>
+  </form>
+</dialog>
+
+<dialog id="autoDlg">
+  <form id="autoForm" autocomplete="off">
+    <h2>Auto-Einstellungen</h2>
+    <p class="muted" style="margin:0;font-size:.88rem">Diese Werte nutzt der Auto-Knopf nach der Betragseingabe. Sie gelten für euch beide. Bezahlt hat, wer angemeldet ist; Datum ist heute.</p>
+    <div class="f"><label for="aDesc">Wofür (Bezeichnung)</label><input id="aDesc" maxlength="80" placeholder="z. B. Lebensmittel" required></div>
+    <div class="f"><label for="aCat">Kategorie</label><select id="aCat"></select></div>
+    <div class="f"><label>Aufteilung</label>
+      <div class="split-row">
+        <div class="seg" role="group" aria-label="Aufteilung bei Auto">
+          <button type="button" data-asplit="half" aria-pressed="true">Halbe-halbe</button>
+          <button type="button" data-asplit="full" aria-pressed="false">Ganz für die andere Person</button>
+          <button type="button" data-asplit="custom" aria-pressed="false">Eigene</button>
+        </div>
+        <div class="custom" id="aCustomBox" hidden>
+          <span class="pa" id="aLabA">A 50 %</span>
+          <input type="range" id="aShare" min="0" max="100" step="5" value="50" aria-label="Anteil A in Prozent">
+          <span class="pb" id="aLabB">B 50 %</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" type="button" id="autoCancel">Abbrechen</button>
+      <button class="btn primary" type="submit">Speichern</button>
+    </div>
   </form>
 </dialog>
 
@@ -508,7 +558,7 @@ const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 const monthKey=d=>(d||"").slice(0,7);
 const monthName=k=>{const [y,m]=k.split("-");return new Date(+y,+m-1,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"})};
 
-const S={names:{a:"Person A",b:"Person B"},namesSet:false,exp:[],shop:[],pockets:[],pocket:"all",newPocket:"lebensmittel",expOpen:false,me:"a",split:"half",sb:null,loaded:{n:false,e:false,s:false}};
+const S={names:{a:"Person A",b:"Person B"},namesSet:false,exp:[],shop:[],pockets:[],pocket:"all",newPocket:"lebensmittel",expOpen:false,me:"a",split:"half",auto:{desc:"Lebensmittel",pocket:"lebensmittel",split:"half",share:50},sb:null,loaded:{n:false,e:false,s:false}};
 const PX=()=>S.pocket==="all"?S.exp:S.exp.filter(x=>x.pocket===S.pocket);
 const pocketName=id=>id==="all"?"Alle Kategorien":(S.pockets.find(p=>p.id===id)||{}).name||id;
 const other=p=>p==="a"?"b":"a";
@@ -541,7 +591,7 @@ function renderNames(){
   const ps=$("ePaid");ps.options[0].textContent=nm("a");ps.options[1].textContent=nm("b");
   $("sKA").textContent="Anteil "+nm("a");$("sKB").textContent="Anteil "+nm("b");
   $("meName").textContent=nm(S.me);$("meName").className="p"+S.me;
-  renderSplit();
+  renderSplit();renderAutoSub();
 }
 function renderBalance(){
   const {net,pa,pb}=balance();
@@ -594,6 +644,19 @@ function renderSplit(){
     const e=Math.abs(effect(x));
     $("preview").innerHTML=`${esc(nm(o))} schuldet ${esc(nm(paid))} dadurch <b class="num">${eur(Math.round(e))}</b>`;
   } else $("preview").textContent="";
+}
+function autoShareA(paid){
+  const a=S.auto;
+  if(a.split==="full")return paid==="a"?0:100;
+  if(a.split==="custom")return Math.max(0,Math.min(100,+a.share||0));
+  return 50;
+}
+function autoPocket(){const id=S.auto.pocket;return S.pockets.some(p=>p.id===id)?id:(S.pockets[0]||{}).id||""}
+function renderAutoSub(){
+  const a=S.auto,sh=autoShareA(S.me);
+  const spl=a.split==="full"?"ganz für "+nm(other(S.me)):sh===50?"50/50":`${nm("a")} ${sh} % / ${nm("b")} ${100-sh} %`;
+  const pk=autoPocket();
+  $("autoSub").textContent=`${a.desc} · ${pk?pocketName(pk):"keine Kategorie"} · ${spl}`;
 }
 function shareFor(paid){
   if(S.split==="half")return 50;
@@ -696,14 +759,14 @@ document.querySelectorAll("[data-tab]").forEach(a=>a.addEventListener("click",ev
 $("eDate").value=today();
 $("ePaid").value=S.me;
 ["fCat","oCat"].forEach(id=>$(id).addEventListener("change",()=>{S.pocket=$(id).value;renderBalance();renderExpenses();renderOverview()}));
-$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles();showStep(2)});
+$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles();showStep(3)});
 document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{S.split=b.dataset.split;renderSplit()});
 ["ePaid","eShare","eAmt"].forEach(id=>$(id).addEventListener("input",renderSplit));
 $("fMonth").addEventListener("change",renderExpenses);
 $("expFold").onclick=()=>{S.expOpen=!S.expOpen;renderExpenses()};
 $("oMonth").addEventListener("change",renderOverview);
 
-/* Ausgabe in 4 Schritten: Kategorie → Betrag → Wofür → Aufteilung */
+/* Ausgabe: 1 Betrag (Auto = sofort fertig, oder selbst eintragen) → 2 Kategorie → 3 Wofür → 4 Aufteilung */
 let step=1;
 function showStep(n){
   step=n;
@@ -712,31 +775,43 @@ function showStep(n){
   $("expTitle").textContent=`Schritt ${n} von 4`;
   $("wizBack").hidden=n===1;
   const parts=[];
-  if(n>1&&S.newPocket)parts.push(pocketName(S.newPocket));
-  const c=parseCents($("eAmt").value);if(n>2&&c>0)parts.push(eur(c));
+  const c=parseCents($("eAmt").value);if(n>1&&c>0)parts.push(eur(c));
+  if(n>2&&S.newPocket)parts.push(pocketName(S.newPocket));
   if(n>3&&$("eDesc").value.trim())parts.push($("eDesc").value.trim());
   $("wizSum").innerHTML=parts.map(p=>`<span class="tag">${esc(p)}</span>`).join("");
   $("wizSum").hidden=!parts.length;
   if(n===4)renderSplit();
   // Fokus sofort (noch innerhalb des Antippens) setzen – nur so öffnet iOS die Tastatur bzw. das Zahlenfeld automatisch
-  const inp=n===2?$("eAmt"):n===3?$("eDesc"):null;
+  const inp=n===1?$("eAmt"):n===3?$("eDesc"):null;
   if(inp){inp.focus({preventScroll:true});try{const l=inp.value.length;inp.setSelectionRange(l,l)}catch(_){}}
   else if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
 }
 function nextStep(){
-  if(step===2){
+  if(step===1){
     if(!(parseCents($("eAmt").value)>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");$("eAmt").focus();return}
-    showStep(3);
+    showStep(2);
   }else if(step===3){
     if(!$("eDesc").value.trim()){toast("Bitte kurz eintragen, wofür das war.");$("eDesc").focus();return}
     showStep(4);
   }
 }
+$("autoBtn").onclick=async()=>{
+  const cents=parseCents($("eAmt").value);
+  if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");$("eAmt").focus();return}
+  if(!S.sb){toast("Bitte zuerst anmelden.");return}
+  const pk=autoPocket();if(!pk){toast("Bitte in den Auto-Einstellungen eine Kategorie wählen.");return}
+  if(busy)return;busy=true;$("autoBtn").disabled=true;
+  const row={kind:"expense",descr:S.auto.desc||"Einkauf",cents,cat:null,paid_by:S.me,share_a:autoShareA(S.me),date:today(),pocket_id:pk};
+  try{await q(S.sb.from("expenses").insert(row));await loadExp();
+    $("eAmt").value="";$("expDlg").close();toast(`${eur(cents)} ${row.descr} eingetragen`);
+    notify(`${nm(S.me)} hat eine Ausgabe eingetragen`,`${row.descr}: ${eur(row.cents)} · ${pocketName(row.pocket_id)}`,"#ausgaben","ausgabe");
+  }catch(e){writeErr(e)}finally{busy=false;$("autoBtn").disabled=false}
+};
 $("wizBack").onclick=()=>{if(step>1)showStep(step-1)};
 function openExp(){
   $("eDate").value=today();$("ePaid").value=S.me;S.split="half";$("eShare").value=50;
   $("eAmt").value="";$("eDesc").value="";S.newPocket="";
-  renderSplit();renderCatTiles();showStep(1);
+  renderSplit();renderCatTiles();renderAutoSub();showStep(1);
   $("expDlg").showModal();
 }
 $("addBtn").onclick=openExp;
@@ -747,8 +822,8 @@ $("expForm").addEventListener("submit",async ev=>{
   if(step<4){nextStep();return}
   if(!S.sb){toast("Bitte zuerst anmelden.");return}
   const cents=parseCents($("eAmt").value);
-  if(!S.newPocket){toast("Bitte eine Kategorie antippen.");showStep(1);return}
-  if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");showStep(2);return}
+  if(!(cents>0)){toast("Bitte einen Betrag größer als 0 eingeben, z. B. 12,50.");showStep(1);return}
+  if(!S.newPocket){toast("Bitte eine Kategorie antippen.");showStep(2);return}
   if(busy)return;busy=true;$("expSubmit").disabled=true;
   const paid=$("ePaid").value;
   const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:null,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today(),pocket_id:S.newPocket};
@@ -781,6 +856,29 @@ $("settleForm").addEventListener("submit",async ev=>{
   } else rows=[{kind:"settle",descr:`Ausgleich: ${nm(debtor)} an ${nm(other(debtor))}`,cents,paid_by:debtor,share_a:50,date:today(),pocket_id:S.pocket}];
   if(!rows.length)return;
   try{await q(S.sb.from("expenses").insert(rows));await loadExp();toast("Zahlung eingetragen");notify(`${nm(debtor)} hat ${eur(cents)} zurückgezahlt`,`${pocketName(S.pocket)}: ${nm(debtor)} an ${nm(other(debtor))}`,"#ausgaben","ausgleich")}catch(e){writeErr(e)}
+});
+
+/* Auto-Einstellungen */
+let aSplit="half";
+function renderAutoForm(){
+  for(const b of document.querySelectorAll("[data-asplit]"))b.setAttribute("aria-pressed",String(b.dataset.asplit===aSplit));
+  $("aCustomBox").hidden=aSplit!=="custom";
+  const sh=+$("aShare").value;$("aLabA").textContent=nm("a")+" "+sh+" %";$("aLabB").textContent=nm("b")+" "+(100-sh)+" %";
+}
+document.querySelectorAll("[data-asplit]").forEach(b=>b.onclick=()=>{aSplit=b.dataset.asplit;renderAutoForm()});
+$("aShare").addEventListener("input",renderAutoForm);
+$("editAuto").onclick=()=>{
+  const a=S.auto;
+  $("aCat").innerHTML=S.pockets.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  $("aDesc").value=a.desc;$("aCat").value=autoPocket();aSplit=a.split||"half";$("aShare").value=a.share??50;
+  renderAutoForm();$("autoDlg").showModal();
+};
+$("autoCancel").onclick=()=>$("autoDlg").close();
+$("autoForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const desc=$("aDesc").value.trim();if(!desc){toast("Bitte eine Bezeichnung eintragen, z. B. Lebensmittel.");return}
+  $("autoDlg").close();
+  try{await q(S.sb.from("settings").update({auto_descr:desc,auto_pocket:$("aCat").value||null,auto_split:aSplit,auto_share:+$("aShare").value}).eq("id",1));await loadNames();toast("Auto-Einstellungen gespeichert")}catch(e){writeErr(e)}
 });
 
 /* names */
@@ -866,7 +964,28 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-3";
+const APP_VERSION="2026-11-06-4";
+/* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
+const CHANGES=[
+  "Nach dem Plus kommt zuerst der Betrag.",
+  "Neuer Knopf „Auto“: trägt sofort mit euren Voreinstellungen ein (z. B. Lebensmittel, 50/50).",
+  "Voreinstellungen unten bei „Auto-Einstellungen“."
+];
+function announceVersion(){
+  const seen=ls.get("hk-ver");
+  if(seen===APP_VERSION)return;
+  $("updList").innerHTML=CHANGES.map(c=>`<li>${esc(c)}</li>`).join("");
+  $("updBanner").hidden=false;
+  // Mitteilung auch als echte Benachrichtigung auf dem Gerät, wenn Mitteilungen erlaubt sind
+  if(ls.get("hk-ver-notified")!==APP_VERSION)try{
+    ls.set("hk-ver-notified",APP_VERSION);
+    if("Notification" in window&&Notification.permission==="granted"&&"serviceWorker" in navigator){
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification("Einkaufi - Ausgebi",{body:"Neue Version geladen: "+CHANGES[0],tag:"app-update",icon:"icon-192.png",badge:"icon-192.png",data:{url:"./"}})).catch(()=>{});
+    }
+  }catch(_){}
+}
+$("updOk").onclick=()=>{ls.set("hk-ver",APP_VERSION);$("updBanner").hidden=true};
+announceVersion();
 try{if(/[?&]v=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash)}catch(_){}
 let updChecking=false;
 async function checkUpdate(){
@@ -933,7 +1052,8 @@ function setStatus(msg){const s=$("status");s.textContent=msg||"";s.hidden=!msg}
 const fromExp=r=>({pocket:r.pocket_id,id:r.id,kind:r.kind,desc:r.descr,cents:r.cents,cat:r.cat,paidBy:r.paid_by,shareA:r.share_a,date:r.date,created:Date.parse(r.created_at)||0});
 async function loadNames(){
   const d=await q(S.sb.from("settings").select("*").eq("id",1).maybeSingle());
-  if(d){S.names={a:d.name_a,b:d.name_b};S.namesSet=!!d.names_set}
+  if(d){S.names={a:d.name_a,b:d.name_b};S.namesSet=!!d.names_set;
+    if(d.auto_descr)S.auto={desc:d.auto_descr,pocket:d.auto_pocket||"",split:d.auto_split||"half",share:d.auto_share??50}}
   S.loaded.n=true;renderAll();
 }
 async function loadExp(){
