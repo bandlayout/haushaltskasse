@@ -18,7 +18,7 @@ html{-webkit-text-size-adjust:100%}
 [hidden]{display:none!important}
 body{margin:0}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-/* Layout: one column app — balance slip on top, tabs for Ausgaben / Einkaufsliste / Übersicht */
+/* Layout: one column app — pockets and tabs on top, big centered add button first; balance slip and account controls at the bottom */
 :root{
   --bg:#F2F4F7; --surface:#FFFFFF; --sunk:#E9EDF2; --ink:#17202B; --muted:#5D6776; --line:#DCE1E8;
   --a:#3F51D0; --a-soft:#E3E7FB; --b:#C46A12; --b-soft:#FBEBDB;
@@ -49,7 +49,7 @@ button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header.top{display:flex;align-items:center;justify-content:center;gap:12px;position:relative;min-height:44px}
 .who{display:flex;align-items:center;gap:4px 10px;font-size:.85rem;color:var(--muted);flex-wrap:wrap}
 .who .x{white-space:nowrap;padding:4px 2px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
 .who > span{flex-basis:100%}
@@ -146,6 +146,30 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .empty{padding:22px 8px;text-align:center;color:var(--muted)}
 .notice{padding:10px 14px;border-radius:10px;background:var(--sunk);font-size:.88rem}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;font-weight:500;z-index:20;max-width:calc(100% - 32px)}
+/* big add button */
+.add-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding-block:6px 2px}
+.fab{width:112px;height:112px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 35%,transparent),0 2px 4px rgb(0 0 0 / .12);touch-action:manipulation;cursor:pointer}
+.fab svg{width:52px;height:52px}
+.fab:active{transform:scale(.95)}
+.fab:hover{filter:brightness(1.07)}
+@media (prefers-reduced-motion:no-preference){.fab{transition:transform .12s ease,filter .12s ease}}
+.add-hero .lbl{font-weight:600;color:var(--muted);font-size:.9rem}
+/* reload button top right */
+.reload{position:absolute;right:0;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;touch-action:manipulation;cursor:pointer}
+.reload:hover{color:var(--ink);border-color:var(--muted)}
+.reload svg{width:20px;height:20px}
+.reload.spin svg{animation:rl .8s linear infinite}
+@keyframes rl{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.reload.spin svg{animation:none}}
+/* expense sheet */
+#expDlg{width:min(560px,calc(100% - 16px));padding:18px}
+#expDlg form.grid{display:grid}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#eAmt{font-size:1.6rem;padding:12px}
+/* bottom info */
+.foot-info{display:flex;flex-direction:column;gap:12px;margin-top:12px;padding-top:18px;border-top:1px solid var(--line)}
+.foot-info .who{justify-content:center;text-align:center}
+.foot-info .who > span{flex-basis:100%}
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:20px;width:min(420px,calc(100% - 32px))}
 .login{min-height:100%;justify-content:center;padding-block:15vh 48px}
 .login-card{display:flex;flex-direction:column;gap:14px}
@@ -194,34 +218,14 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 <div class="wrap" id="app" hidden>
   <header class="top">
     <h1>Haushaltskasse</h1>
-    <div class="who"><span>Angemeldet als <b id="meName">…</b></span>
-      <button class="x" id="editNames" type="button">Namen</button>
-      <button class="x" id="editPush" type="button">Benachrichtigungen</button>
-      <button class="x" id="editPw" type="button">Passwort ändern</button>
-      <button class="x" id="reloadApp" type="button" title="Neueste Version der App laden">Aktuelle Version laden</button>
-      <button class="x" id="logout" type="button">Abmelden</button>
-    </div>
+    <button class="reload" id="reloadTop" type="button" title="Neu laden" aria-label="Neueste Version der App laden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
   </header>
+
 
   <div id="status" class="notice">Daten werden geladen …</div>
 
   <nav class="pockets" id="pockets" aria-label="Pockets"></nav>
 
-  <section class="slip" aria-live="polite">
-    <div class="label" id="slipLabel">Kontostand</div>
-    <div class="verdict" id="verdict">Alles ausgeglichen</div>
-    <div>
-      <div class="bar" aria-hidden="true"><span id="barA" style="width:50%;background:var(--a)"></span><span id="barB" style="width:50%;background:var(--b)"></span></div>
-    </div>
-    <div class="legend">
-      <span><span class="pa" id="lgA">Person A</span> hat bezahlt: <b class="num" id="paidA">0,00 €</b></span>
-      <span><span class="pb" id="lgB">Person B</span> hat bezahlt: <b class="num" id="paidB">0,00 €</b></span>
-    </div>
-    <div class="slip-actions">
-      <button class="btn small" id="settleBtn" type="button" hidden>Schulden begleichen</button>
-      <span class="muted all-line" id="allLine"></span>
-    </div>
-  </section>
 
   <nav class="tabs" aria-label="Bereiche">
     <a href="#ausgaben" data-tab="ausgaben">Ausgaben</a>
@@ -231,32 +235,9 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 
   <!-- AUSGABEN -->
   <section class="panel" id="p-ausgaben">
-    <div class="card">
-      <form class="grid" id="expForm" autocomplete="off">
-        <div class="f c4"><label for="eDesc">Wofür?</label><input id="eDesc" required maxlength="80" placeholder="z. B. Wocheneinkauf Rewe"></div>
-        <div class="f c2"><label for="eAmt">Betrag (€)</label><input id="eAmt" class="amount-in" required inputmode="decimal" placeholder="0,00"></div>
-        <div class="f c2"><label for="eCat">Kategorie</label><select id="eCat"></select></div>
-        <div class="f c2"><label for="ePaid">Bezahlt von</label><select id="ePaid"><option value="a">A</option><option value="b">B</option></select></div>
-        <div class="f c2"><label for="eDate">Datum</label><input id="eDate" type="date" required></div>
-        <div class="f c6"><label>Aufteilung</label>
-          <div class="split-row">
-            <div class="seg" id="splitSeg" role="group" aria-label="Aufteilung">
-              <button type="button" id="sp-half" data-split="half" aria-pressed="true">Halbe-halbe</button>
-              <button type="button" id="sp-full" data-split="full" aria-pressed="false">Ganz für B</button>
-              <button type="button" id="sp-custom" data-split="custom" aria-pressed="false">Eigene</button>
-            </div>
-            <div class="custom" id="customBox" hidden>
-              <span class="pa" id="cLabA">A 50 %</span>
-              <input type="range" id="eShare" min="0" max="100" step="5" value="50" aria-label="Anteil A in Prozent">
-              <span class="pb" id="cLabB">B 50 %</span>
-            </div>
-          </div>
-        </div>
-        <div class="form-foot c6">
-          <span class="muted" id="preview"></span>
-          <button class="btn primary" id="expSubmit" type="submit">Ausgabe eintragen</button>
-        </div>
-      </form>
+    <div class="add-hero">
+      <button class="fab" id="addBtn" type="button" aria-label="Ausgabe eintragen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></button>
+      <span class="lbl" id="addLbl">Ausgabe eintragen</span>
     </div>
 
     <div class="filters">
@@ -304,7 +285,61 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       <p class="muted" style="font-size:.8rem;margin:14px 0 0">Ausgaben im gewählten Zeitraum, darunter der offene Saldo des Pockets.</p>
     </div>
   </section>
+
+  <footer class="foot-info">
+    <section class="slip" aria-live="polite">
+      <div class="label" id="slipLabel">Kontostand</div>
+      <div class="verdict" id="verdict">Alles ausgeglichen</div>
+      <div>
+        <div class="bar" aria-hidden="true"><span id="barA" style="width:50%;background:var(--a)"></span><span id="barB" style="width:50%;background:var(--b)"></span></div>
+      </div>
+      <div class="legend">
+        <span><span class="pa" id="lgA">Person A</span> hat bezahlt: <b class="num" id="paidA">0,00 €</b></span>
+        <span><span class="pb" id="lgB">Person B</span> hat bezahlt: <b class="num" id="paidB">0,00 €</b></span>
+      </div>
+      <div class="slip-actions">
+        <button class="btn small" id="settleBtn" type="button" hidden>Schulden begleichen</button>
+        <span class="muted all-line" id="allLine"></span>
+      </div>
+    </section>
+    <div class="who"><span>Angemeldet als <b id="meName">…</b></span>
+      <button class="x" id="editNames" type="button">Namen</button>
+      <button class="x" id="editPush" type="button">Benachrichtigungen</button>
+      <button class="x" id="editPw" type="button">Passwort ändern</button>
+      <button class="x" id="reloadApp" type="button" title="Neueste Version der App laden">Aktuelle Version laden</button>
+      <button class="x" id="logout" type="button">Abmelden</button>
+    </div>
+  </footer>
 </div>
+
+<dialog id="expDlg" aria-labelledby="expTitle">
+  <form class="grid" id="expForm" autocomplete="off">
+        <div class="dlg-h c6"><h2 id="expTitle">Neue Ausgabe</h2><button class="btn small" type="button" id="expCancel">Abbrechen</button></div>
+        <div class="f c6"><label for="eAmt">Betrag (€)</label><input id="eAmt" class="amount-in" required inputmode="decimal" placeholder="0,00"></div>
+        <div class="f c6"><label for="eDesc">Wofür?</label><input id="eDesc" required maxlength="80" placeholder="z. B. Wocheneinkauf Rewe"></div>
+        <div class="f c6"><label for="eCat">Kategorie</label><select id="eCat"></select></div>
+        <div class="f c2"><label for="ePaid">Bezahlt von</label><select id="ePaid"><option value="a">A</option><option value="b">B</option></select></div>
+        <div class="f c2"><label for="eDate">Datum</label><input id="eDate" type="date" required></div>
+        <div class="f c6"><label>Aufteilung</label>
+          <div class="split-row">
+            <div class="seg" id="splitSeg" role="group" aria-label="Aufteilung">
+              <button type="button" id="sp-half" data-split="half" aria-pressed="true">Halbe-halbe</button>
+              <button type="button" id="sp-full" data-split="full" aria-pressed="false">Ganz für B</button>
+              <button type="button" id="sp-custom" data-split="custom" aria-pressed="false">Eigene</button>
+            </div>
+            <div class="custom" id="customBox" hidden>
+              <span class="pa" id="cLabA">A 50 %</span>
+              <input type="range" id="eShare" min="0" max="100" step="5" value="50" aria-label="Anteil A in Prozent">
+              <span class="pb" id="cLabB">B 50 %</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-foot c6">
+          <span class="muted" id="preview" style="min-width:0"></span>
+          <button class="btn primary" id="expSubmit" type="submit">Ausgabe eintragen</button>
+        </div>
+  </form>
+</dialog>
 
 <dialog id="namesDlg">
   <form method="dialog" id="namesForm">
@@ -574,6 +609,13 @@ document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{S.split=b.da
 ["fMonth","fCat"].forEach(id=>$(id).addEventListener("change",renderExpenses));
 $("oMonth").addEventListener("change",renderOverview);
 
+function openExp(){
+  $("eDate").value=today();$("ePaid").value=S.me;S.split="half";renderSplit();
+  $("expTitle").textContent="Neue Ausgabe · "+pocketName(S.pocket);
+  $("expDlg").showModal();setTimeout(()=>$("eAmt").focus(),30);
+}
+$("addBtn").onclick=openExp;
+$("expCancel").onclick=()=>$("expDlg").close();
 let busy=false;
 $("expForm").addEventListener("submit",async ev=>{
   ev.preventDefault();
@@ -584,7 +626,7 @@ $("expForm").addEventListener("submit",async ev=>{
   const paid=$("ePaid").value;
   const row={kind:"expense",descr:$("eDesc").value.trim(),cents,cat:$("eCat").value,paid_by:paid,share_a:shareFor(paid),date:$("eDate").value||today(),pocket_id:S.pocket};
   try{await q(S.sb.from("expenses").insert(row));await loadExp();
-    $("eDesc").value="";$("eAmt").value="";S.split="half";renderSplit();toast("Ausgabe eingetragen");notify(`${nm(S.me)} hat eine Ausgabe eingetragen`,`${row.descr}: ${eur(row.cents)} · ${pocketName(row.pocket_id)}`,"#ausgaben","ausgabe");$("eDesc").focus();
+    $("eDesc").value="";$("eAmt").value="";S.split="half";renderSplit();$("expDlg").close();toast("Ausgabe eingetragen");notify(`${nm(S.me)} hat eine Ausgabe eingetragen`,`${row.descr}: ${eur(row.cents)} · ${pocketName(row.pocket_id)}`,"#ausgaben","ausgabe");
   }catch(e){writeErr(e)}finally{busy=false;$("expSubmit").disabled=false}
 });
 $("expList").addEventListener("click",async ev=>{
@@ -689,6 +731,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 
 /* reload */
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
+$("reloadTop").onclick=()=>{$("reloadTop").classList.add("spin");location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 
 /* password */
 $("editPw").onclick=()=>{$("pw1").value="";$("pw2").value="";$("pwDlg").showModal()};
