@@ -696,7 +696,7 @@ document.querySelectorAll("[data-tab]").forEach(a=>a.addEventListener("click",ev
 $("eDate").value=today();
 $("ePaid").value=S.me;
 ["fCat","oCat"].forEach(id=>$(id).addEventListener("change",()=>{S.pocket=$(id).value;renderBalance();renderExpenses();renderOverview()}));
-$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles();setTimeout(()=>showStep(2),140)});
+$("eCatTiles").addEventListener("click",ev=>{const b=ev.target.closest("[data-newpocket]");if(!b)return;S.newPocket=b.dataset.newpocket;renderCatTiles();showStep(2)});
 document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{S.split=b.dataset.split;renderSplit()});
 ["ePaid","eShare","eAmt"].forEach(id=>$(id).addEventListener("input",renderSplit));
 $("fMonth").addEventListener("change",renderExpenses);
@@ -718,7 +718,10 @@ function showStep(n){
   $("wizSum").innerHTML=parts.map(p=>`<span class="tag">${esc(p)}</span>`).join("");
   $("wizSum").hidden=!parts.length;
   if(n===4)renderSplit();
-  setTimeout(()=>{if(n===2)$("eAmt").focus();else if(n===3)$("eDesc").focus();else if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()},60);
+  // Fokus sofort (noch innerhalb des Antippens) setzen – nur so öffnet iOS die Tastatur bzw. das Zahlenfeld automatisch
+  const inp=n===2?$("eAmt"):n===3?$("eDesc"):null;
+  if(inp){inp.focus({preventScroll:true});try{const l=inp.value.length;inp.setSelectionRange(l,l)}catch(_){}}
+  else if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
 }
 function nextStep(){
   if(step===2){
@@ -863,7 +866,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-2";
+const APP_VERSION="2026-11-06-3";
 try{if(/[?&]v=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash)}catch(_){}
 let updChecking=false;
 async function checkUpdate(){
