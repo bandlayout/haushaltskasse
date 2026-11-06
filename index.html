@@ -381,7 +381,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 
         <section class="step" data-step="1">
           <label class="step-q" for="eAmt">Wie viel?</label>
-          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" placeholder="0,00 €" enterkeyhint="done"></div>
+          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" autofocus placeholder="0,00 €" enterkeyhint="done"></div>
           <div class="amt-actions">
             <button class="btn primary auto-btn" type="button" id="autoBtn"><span class="big">Auto</span><span class="sub" id="autoSub"></span></button>
             <button class="btn wiz-next" type="submit">Selbst eintragen</button>
@@ -813,7 +813,23 @@ function openExp(){
   $("eAmt").value="";$("eDesc").value="";S.newPocket="";
   renderSplit();renderCatTiles();renderAutoSub();showStep(1);
   $("expDlg").showModal();
+  focusAmt();
 }
+// Cursor ins Betragsfeld (nach showModal, sonst ist das Feld noch unsichtbar und nimmt keinen Fokus an)
+function focusAmt(){const i=$("eAmt");try{i.focus({preventScroll:true})}catch(_){i.focus()}}
+/* Beim Öffnen der App direkt im Eintragen-Bildschirm starten (Betragsfeld aktiv) */
+function openExpOnLaunch(){
+  if(document.querySelector("dialog[open]")||$("app").hidden)return;
+  openExp();
+  // Manche Geräte geben den Fokus erst frei, wenn die Seite fertig gezeichnet ist
+  requestAnimationFrame(()=>setTimeout(focusAmt,50));
+}
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){hiddenAt=Date.now();return}
+  // App kam nach mindestens 1 Minute wieder nach vorn = wie neu geöffnet
+  if(hiddenAt&&Date.now()-hiddenAt>60*1000)openExpOnLaunch();
+});
 $("addBtn").onclick=openExp;
 $("expCancel").onclick=()=>$("expDlg").close();
 let busy=false;
@@ -964,12 +980,11 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-4";
+const APP_VERSION="2026-11-06-5";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
-  "Nach dem Plus kommt zuerst der Betrag.",
-  "Neuer Knopf „Auto“: trägt sofort mit euren Voreinstellungen ein (z. B. Lebensmittel, 50/50).",
-  "Voreinstellungen unten bei „Auto-Einstellungen“."
+  "Beim Öffnen startet die App direkt beim Eintragen einer Ausgabe – einfach den Betrag tippen.",
+  "Mit „Abbrechen“ geht es zur Übersicht."
 ];
 function announceVersion(){
   const seen=ls.get("hk-ver");
@@ -994,7 +1009,9 @@ async function checkUpdate(){
     const r=await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"});
     const m=(await r.text()).match(/const APP_VERSION="([^"]+)"/);
     if(m&&m[1]!==APP_VERSION){
-      if(document.querySelector("dialog[open]")){S.updatePending=true;return}
+      const open=document.querySelector("dialog[open]");
+      const untouched=open&&open.id==="expDlg"&&step===1&&!$("eAmt").value.trim();
+      if(open&&!untouched){S.updatePending=true;return}
       location.replace(location.pathname+"?v="+encodeURIComponent(m[1])+location.hash);
     }
   }catch(_){}finally{updChecking=false}
@@ -1108,7 +1125,7 @@ $("loginForm").addEventListener("submit",async ev=>{
   const {error}=await S.sb.auth.signInWithPassword({email:em,password:pw});
   $("loginBtn").disabled=false;
   if(error){$("loginErr").textContent=/invalid/i.test(error.message)?"E-Mail oder Passwort stimmt nicht.":"Anmeldung fehlgeschlagen: "+error.message;$("loginErr").hidden=false;return}
-  $("pw").value="";showLogin(false);loadAll();
+  $("pw").value="";showLogin(false);openExpOnLaunch();loadAll();
 });
 $("logout").onclick=async()=>{if(channel){S.sb.removeChannel(channel);channel=null}await S.sb.auth.signOut();S.exp=[];S.shop=[];showLogin(true)};
 async function start(){
@@ -1116,7 +1133,7 @@ async function start(){
   if(!window.supabase){setStatus("Die Datenbank-Bibliothek konnte nicht geladen werden. Prüfe die Internetverbindung.");return}
   S.sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storage:authStorage}});
   const {data:{session}}=await S.sb.auth.getSession();
-  if(session){showLogin(false);loadAll()}else showLogin(true);
+  if(session){showLogin(false);const deep=/^#(einkauf|uebersicht)$/.test(location.hash);if(!deep)openExpOnLaunch();loadAll()}else showLogin(true);
 }
 start();
 })();
