@@ -94,6 +94,12 @@ form.grid > *{min-width:0}
 .c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}.c2{grid-column:span 2}
 @media (max-width:560px){.c4,.c3{grid-column:span 6}.c2{grid-column:span 3}}
 .amount-in{font-family:var(--f-num);font-weight:700}
+/* Eigenes Zahlenfeld für den Betrag: ist sofort da, ohne dass iOS die Tastatur öffnen muss */
+#eAmt{font-size:1.9rem;text-align:center;caret-color:transparent;cursor:default;user-select:none;-webkit-user-select:none}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.keypad button{border:1px solid var(--line);background:var(--sunk);color:var(--ink);border-radius:12px;min-height:54px;font-family:var(--f-num);font-size:1.45rem;font-weight:600;display:grid;place-items:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.keypad button:active{background:var(--line)}
+.keypad svg{width:26px;height:26px}
 .split-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .custom{display:flex;align-items:center;gap:10px;font-size:.85rem;width:100%}
 .custom input[type=range]{flex:1;accent-color:var(--accent)}
@@ -383,7 +389,14 @@ dialog form{display:flex;flex-direction:column;gap:12px}
 
         <section class="step" data-step="1">
           <label class="step-q" for="eAmt">Wie viel?</label>
-          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="decimal" autofocus placeholder="0,00 €" enterkeyhint="done"></div>
+          <div class="f hl"><input id="eAmt" class="amount-in" inputmode="none" readonly autofocus placeholder="0,00 €" aria-describedby="eAmtPad"></div>
+          <div class="keypad" id="eAmtPad" role="group" aria-label="Zahlenfeld">
+            <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+            <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+            <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+            <button type="button" data-k=",">,</button><button type="button" data-k="0">0</button>
+            <button type="button" data-k="del" aria-label="Löschen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z"/><path d="M12 9l6 6M18 9l-6 6"/></svg></button>
+          </div>
           <div class="amt-actions">
             <button class="btn primary auto-btn" type="button" id="autoBtn"><span class="big">Auto</span><span class="sub" id="autoSub"></span></button>
             <button class="btn wiz-next" type="submit">Selbst eintragen</button>
@@ -810,6 +823,30 @@ $("autoBtn").onclick=async()=>{
   }catch(e){writeErr(e)}finally{busy=false;$("autoBtn").disabled=false}
 };
 $("wizBack").onclick=()=>{if(step>1)showStep(step-1)};
+/* Zahlenfeld: Ziffern, ein Komma, höchstens 2 Nachkommastellen */
+function padKey(k){
+  const i=$("eAmt");let v=i.value;
+  if(k==="del")v=v.slice(0,-1);
+  else if(k===","){if(v.includes(","))return;v=(v||"0")+","}
+  else{
+    if(v.includes(",")&&v.split(",")[1].length>=2)return;
+    if(!v.includes(",")&&v.replace(/^0+/,"").length>=6)return;
+    v=v==="0"?k:v+k;
+  }
+  i.value=v;i.dispatchEvent(new Event("input",{bubbles:true}));
+  if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}
+}
+$("eAmtPad").addEventListener("click",ev=>{const b=ev.target.closest("[data-k]");if(b)padKey(b.dataset.k)});
+// Am Computer: normale Tastatur geht auch
+$("expDlg").addEventListener("keydown",ev=>{
+  if(step!==1||ev.metaKey||ev.ctrlKey||ev.altKey)return;
+  const k=ev.key;
+  if(/^[0-9]$/.test(k))padKey(k);
+  else if(k===","||k===".")padKey(",");
+  else if(k==="Backspace")padKey("del");
+  else return;
+  ev.preventDefault();
+});
 function openExp(){
   $("eDate").value=today();$("ePaid").value=S.me;S.split="half";$("eShare").value=50;
   $("eAmt").value="";$("eDesc").value="";S.newPocket="";
@@ -1018,10 +1055,10 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-6";
+const APP_VERSION="2026-11-06-7";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
-  "Beim Öffnen startet die App direkt beim Eintragen einer Ausgabe – einfach den Betrag tippen.",
+  "Beim Öffnen startet die App direkt beim Eintragen einer Ausgabe – das Zahlenfeld ist sofort da, einfach den Betrag tippen.",
   "Mit „Abbrechen“ geht es zur Übersicht.",
   "Die Tastatur verdeckt nie mehr das Feld, in das du gerade tippst."
 ];
