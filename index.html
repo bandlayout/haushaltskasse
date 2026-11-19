@@ -78,8 +78,9 @@ header.top{display:flex;align-items:center;justify-content:center;gap:12px;posit
 .btn.small{padding:6px 10px;font-size:.85rem}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
-nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
-nav.tabs a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:6px;align-items:center}
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{padding:10px 11px;white-space:nowrap;flex:none;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:6px;align-items:center}
 nav.tabs a[aria-current="page"]{color:var(--primary-dark);border-bottom-color:var(--teal)}
 nav.tabs .count{font-family:var(--f-num);font-size:.75rem;background:var(--sunk);border-radius:999px;padding:1px 7px}
 
@@ -164,6 +165,24 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 
 .empty{padding:22px 8px;text-align:center;color:var(--muted)}
 .notice{padding:10px 14px;border-radius:10px;background:var(--sunk);font-size:.88rem}
+/* Licht (Philips Hue) */
+.hue-connect h2{margin-bottom:6px}.hue-connect p{margin:0 0 12px}
+.hue-rooms{display:grid;gap:10px}
+.hue-room{display:grid;gap:10px}
+.hue-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;min-height:44px}
+.hue-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hue-name small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.hue-sw{position:relative;width:56px;height:32px;border-radius:999px;border:0;background:var(--line);transition:background .15s}
+.hue-sw::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:var(--glow);transition:transform .15s}
+.hue-sw[aria-checked="true"]{background:var(--accent)}.hue-sw[aria-checked="true"]::after{transform:translateX(24px)}
+.hue-dim{display:grid;grid-template-columns:22px minmax(0,1fr) 44px;align-items:center;gap:8px;height:32px}
+.hue-dim input{width:100%;accent-color:var(--accent)}
+.hue-dim .num{font-family:var(--f-num);font-size:.85rem;text-align:right;color:var(--muted)}
+.hue-scenes{display:flex;flex-wrap:wrap;gap:6px}
+.hue-scenes button{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.85rem;font-weight:600}
+.hue-scenes button.on{background:var(--primary-soft);border-color:var(--teal);color:var(--primary-dark)}
+.hue-room.off .hue-dim{opacity:.45}
+.hue-foot{display:flex;gap:8px;justify-content:center;margin:4px 0 0}
 .toast{box-shadow:var(--glow);position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;font-weight:500;z-index:20;max-width:calc(100% - 32px)}
 /* two plus buttons */
 .add-hero{display:grid;grid-template-columns:1fr 1fr;gap:16px;justify-items:center;padding-block:6px 2px}
@@ -298,6 +317,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     <a href="#ausgaben" data-tab="ausgaben">Ausgaben</a>
     <a href="#einkauf" data-tab="einkauf">Einkaufsliste <span class="count num" id="shopCount">0</span></a>
     <a href="#uebersicht" data-tab="uebersicht">Übersicht</a>
+    <a href="#licht" data-tab="licht">Licht</a>
   </nav>
 
   <!-- AUSGABEN -->
@@ -346,6 +366,18 @@ dialog form{display:flex;flex-direction:column;gap:12px}
       <div class="cats" id="pocketCmp"></div>
       <p class="muted" style="font-size:.8rem;margin:14px 0 0">Ausgaben im gewählten Zeitraum, darunter der offene Saldo der Kategorie.</p>
     </div>
+  </section>
+
+  <!-- LICHT (Philips Hue) -->
+  <section class="panel" id="p-licht" hidden>
+    <div class="notice" id="hueMsg" hidden></div>
+    <div class="card hue-connect" id="hueConnect" hidden>
+      <h2>Philips Hue verbinden</h2>
+      <p class="muted" id="hueConnectTxt">Einmal mit dem Hue-Konto anmelden – danach könnt ihr beide eure Lampen hier schalten, auch von unterwegs.</p>
+      <button class="btn primary" type="button" id="hueLogin">Mit Hue verbinden</button>
+    </div>
+    <div id="hueRooms" class="hue-rooms"></div>
+    <p class="hue-foot" id="hueFoot" hidden><button class="btn small" type="button" id="hueReload">Aktualisieren</button> <button class="btn small" type="button" id="hueOff">Hue trennen</button></p>
   </section>
 
   <footer class="foot-info">
@@ -759,9 +791,11 @@ function renderShopDlg(){
 function renderAll(){renderNames();renderBalance();renderExpenses();renderOverview();renderShop();renderShopDlg()}
 
 /* ---------- tabs ---------- */
-const TABS=["ausgaben","einkauf","uebersicht"];
+const TABS=["ausgaben","einkauf","uebersicht","licht"];
 function route(){
-  const t=TABS.includes(location.hash.slice(1))?location.hash.slice(1):"ausgaben";
+  const h=location.hash.slice(1).split("?")[0];
+  const t=TABS.includes(h)?h:"ausgaben";
+  if(t==="licht")hueOpen();
   for(const k of TABS)$("p-"+k).hidden=k!==t;
   for(const a of document.querySelectorAll("[data-tab]")){if(a.dataset.tab===t)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")}
 }
@@ -1054,7 +1088,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-06-10";
+const APP_VERSION="2026-11-19-1";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
@@ -1201,15 +1235,80 @@ $("loginForm").addEventListener("submit",async ev=>{
   const {error}=await S.sb.auth.signInWithPassword({email:em,password:pw});
   $("loginBtn").disabled=false;
   if(error){$("loginErr").textContent=/invalid/i.test(error.message)?"E-Mail oder Passwort stimmt nicht.":"Anmeldung fehlgeschlagen: "+error.message;$("loginErr").hidden=false;return}
-  $("pw").value="";showLogin(false);openExpOnLaunch();loadAll();
+  $("pw").value="";showLogin(false);if(location.hash.startsWith("#licht"))hueOpen();else openExpOnLaunch();loadAll();
 });
 $("logout").onclick=async()=>{if(channel){S.sb.removeChannel(channel);channel=null}await S.sb.auth.signOut();S.exp=[];S.shop=[];showLogin(true)};
+/* ---------- Licht (Philips Hue über die Hue-Cloud, Edge Function „hue“) ---------- */
+const hue={rooms:null,loading:false,status:null,busy:new Set()};
+async function hueCall(body){
+  const {data,error}=await S.sb.functions.invoke("hue",{body});
+  if(error){let d=null;try{d=await error.context.json()}catch(e){}const er=new Error(d?.error||"Hue ist gerade nicht erreichbar.");er.notConnected=!!d?.notConnected;throw er}
+  return data;
+}
+function hueNote(t){const m=$("hueMsg");m.textContent=t||"";m.hidden=!t}
+async function hueOpen(){
+  // Rückmeldung vom Hue-Login (#licht?hue=…)
+  const r=(location.hash.split("?hue=")[1]||"");
+  if(r){history.replaceState(null,"","#licht");hueNote({ok:"Hue ist verbunden.",abgebrochen:"Hue-Anmeldung abgebrochen.",abgelaufen:"Die Anmeldung hat zu lange gedauert – bitte noch einmal verbinden.",bridge:"Angemeldet, aber die Bridge hat nicht geantwortet. Ist sie online? Bitte noch einmal verbinden.",fehler:"Verbinden hat nicht geklappt. Bitte noch einmal versuchen."}[decodeURIComponent(r)]||"")}
+  if(!S.sb||hue.loading)return;
+  const {data:{session}}=await S.sb.auth.getSession();if(!session)return;
+  hue.loading=true;
+  try{
+    hue.status=await hueCall({action:"status"});
+    if(!hue.status.connected){hue.rooms=null;renderHue();return}
+    hue.rooms=(await hueCall({action:"rooms"})).rooms;
+  }catch(e){if(e.notConnected){hue.status={...hue.status,connected:false};hue.rooms=null}else hueNote(e.message)}
+  finally{hue.loading=false;renderHue()}
+}
+const HUE_ICON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+function renderHue(){
+  const st=hue.status,con=$("hueConnect"),box=$("hueRooms");
+  con.hidden=!st||st.connected;
+  if(st&&!st.connected){
+    $("hueLogin").disabled=!st.configured;
+    $("hueConnectTxt").textContent=st.configured?"Einmal mit dem Hue-Konto anmelden – danach könnt ihr beide eure Lampen hier schalten, auch von unterwegs.":"Die Hue-Verbindung ist noch nicht eingerichtet (Zugangsdaten der Hue-App fehlen in Supabase).";
+  }
+  $("hueFoot").hidden=!(st&&st.connected);
+  if(!st){box.innerHTML='<p class="muted">Lade …</p>';return}
+  if(!st.connected||!hue.rooms){box.innerHTML="";return}
+  if(!hue.rooms.length){box.innerHTML='<p class="muted">Keine Räume gefunden. Lege Räume in der Hue-App an.</p>';return}
+  box.innerHTML=hue.rooms.map((r,i)=>{const L=r.light,b=Math.round(L.brightness??100);return `
+    <div class="card hue-room${L.on?"":" off"}" data-i="${i}">
+      <div class="hue-head">
+        <span class="hue-name">${esc(r.name)}<small>${r.kind==="zone"?"Zone":"Raum"}</small></span>
+        <button class="hue-sw" type="button" role="switch" aria-checked="${L.on}" aria-label="${esc(r.name)} ${L.on?"ausschalten":"einschalten"}" data-act="toggle"></button>
+      </div>
+      <label class="hue-dim">${HUE_ICON}<input type="range" min="1" max="100" value="${b}" aria-label="Helligkeit ${esc(r.name)}" data-act="dim"><span class="num">${b} %</span></label>
+      ${r.scenes.length?`<div class="hue-scenes">${r.scenes.map(s=>`<button type="button" class="${s.active?"on":""}" data-act="scene" data-id="${esc(s.id)}">${esc(s.name)}</button>`).join("")}</div>`:""}
+    </div>`}).join("");
+}
+async function hueDo(i,fn){
+  if(hue.busy.has(i))return;hue.busy.add(i);
+  try{await fn();hueNote("")}catch(e){hueNote(e.message)}finally{hue.busy.delete(i)}
+}
+$("hueRooms").addEventListener("click",ev=>{
+  const el=ev.target.closest("[data-act]");if(!el)return;
+  const i=+el.closest(".hue-room").dataset.i,r=hue.rooms[i];
+  if(el.dataset.act==="toggle"){const on=!r.light.on;r.light.on=on;renderHue();hueDo(i,()=>hueCall({action:"set",id:r.light.id,on}).catch(e=>{r.light.on=!on;renderHue();throw e}))}
+  if(el.dataset.act==="scene"){r.scenes.forEach(s=>s.active=s.id===el.dataset.id);r.light.on=true;renderHue();hueDo(i,()=>hueCall({action:"scene",id:el.dataset.id}))}
+});
+$("hueRooms").addEventListener("input",ev=>{if(ev.target.dataset.act==="dim")ev.target.nextElementSibling.textContent=ev.target.value+" %"});
+$("hueRooms").addEventListener("change",ev=>{
+  if(ev.target.dataset.act!=="dim")return;
+  const i=+ev.target.closest(".hue-room").dataset.i,r=hue.rooms[i],v=+ev.target.value;
+  r.light.brightness=v;r.light.on=true;r.scenes.forEach(s=>s.active=false);renderHue();
+  hueDo(i,()=>hueCall({action:"set",id:r.light.id,on:true,brightness:v}));
+});
+$("hueLogin").onclick=async()=>{$("hueLogin").disabled=true;try{const {url}=await hueCall({action:"login"});location.href=url}catch(e){hueNote(e.message);$("hueLogin").disabled=false}};
+$("hueReload").onclick=()=>hueOpen();
+$("hueOff").onclick=async()=>{if(!confirm("Hue-Verbindung für euch beide trennen?"))return;try{await hueCall({action:"disconnect"});hueNote("Hue ist getrennt.")}catch(e){hueNote(e.message)}hueOpen()};
+
 async function start(){
   route();renderAll();
   if(!window.supabase){setStatus("Die Datenbank-Bibliothek konnte nicht geladen werden. Prüfe die Internetverbindung.");return}
   S.sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storage:authStorage}});
   const {data:{session}}=await S.sb.auth.getSession();
-  if(session){showLogin(false);const deep=/^#(einkauf|uebersicht)$/.test(location.hash);if(!deep)openExpOnLaunch();loadAll()}else showLogin(true);
+  if(session){showLogin(false);const deep=/^#(einkauf|uebersicht|licht)/.test(location.hash);if(!deep)openExpOnLaunch();loadAll();if(location.hash.startsWith("#licht"))hueOpen()}else showLogin(true);
 }
 start();
 })();
