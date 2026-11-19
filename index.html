@@ -192,6 +192,18 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .fab:active{background:var(--primary-dark)}
 .fab.shop{background:var(--surface);color:var(--b-ink);border:3px solid var(--coral)}
 .fab.shop:active{background:var(--peach)}
+.fab{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.fab.shop.hold{background:var(--peach);box-shadow:0 0 0 6px color-mix(in srgb,var(--coral) 35%,transparent)}
+/* Spracheingabe Einkaufsliste */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#voiceDlg{text-align:center}
+.voice-mic{width:84px;height:84px;margin:6px auto 12px;border-radius:50%;display:grid;place-items:center;background:var(--b-soft);color:var(--b-ink)}
+.voice-mic svg{width:40px;height:40px}
+#voiceDlg.on .voice-mic{animation:vpulse 1.2s ease-in-out infinite}
+@keyframes vpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--coral) 45%,transparent)}50%{box-shadow:0 0 0 14px transparent}}
+.voice-txt{min-height:3.2em;margin:0 0 6px;font-size:1.05rem;font-weight:600}
+.voice-hint{margin:0 0 14px;font-size:.85rem}
+.voice-btns{display:flex;gap:8px;justify-content:center}
 .fab svg{width:48%;height:48%;overflow:visible}
 .add-hero .lbl{font-weight:600;color:var(--muted);font-size:.9rem}
 #shopDlg ul.list{max-height:40vh;overflow-y:auto}
@@ -309,6 +321,7 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     <div class="one">
       <button class="fab shop" id="addShopBtn" type="button" aria-label="Zur Einkaufsliste hinzufügen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></button>
       <span class="lbl">Einkaufsliste</span>
+      <span class="muted" style="font-size:.72rem;margin-top:-6px">lang drücken = sprechen</span>
     </div>
   </div>
 
@@ -483,6 +496,17 @@ dialog form{display:flex;flex-direction:column;gap:12px}
     </div>
     <ul class="list shop" id="shopDlgList"></ul>
   </form>
+</dialog>
+
+<dialog id="voiceDlg" aria-labelledby="voiceTitle">
+  <h2 id="voiceTitle" class="sr-only">Einkaufsliste per Sprache</h2>
+  <div class="voice-mic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+  <p class="voice-txt" id="voiceTxt">Sprich jetzt …</p>
+  <p class="muted voice-hint" id="voiceHint">z. B. „Hafermilch, zwei Gurken und Klopapier“</p>
+  <div class="voice-btns">
+    <button class="btn" type="button" id="voiceCancel">Abbrechen</button>
+    <button class="btn primary" type="button" id="voiceDone">Fertig</button>
+  </div>
 </dialog>
 
 <dialog id="autoDlg">
@@ -1088,7 +1112,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-19-1";
+const APP_VERSION="2026-11-19-2";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
@@ -1152,8 +1176,111 @@ async function addShopItem(inp){
   try{await q(S.sb.from("shopping").insert({text:t,added_by:S.me}));queueShopNotify(t);await loadShop();toast("„"+t+"“ steht auf der Liste")}catch(e){inp.value=t;writeErr(e)}
 }
 $("shopForm").addEventListener("submit",ev=>{ev.preventDefault();addShopItem($("shopIn"))});
-$("shopDlgForm").addEventListener("submit",ev=>{ev.preventDefault();addShopItem($("shopDlgIn"));$("shopDlgIn").focus()});
-$("addShopBtn").onclick=()=>{renderShopDlg();$("shopDlg").showModal()};
+$("shopDlgForm").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  // Nach Diktat über die Tastatur (Sprach-Ersatz): mehrere Sachen auf einmal
+  if(S.voiceType){const t=$("shopDlgIn").value;$("shopDlgIn").value="";addShopItems(splitSpoken(t))}else addShopItem($("shopDlgIn"));
+  $("shopDlgIn").focus();
+});
+function openShopDlg(voice){
+  S.voiceType=!!voice;renderShopDlg();
+  $("shopDlgIn").placeholder=voice?"Tippe auf 🎤 der Tastatur und sprich":"Was fehlt? z. B. Hafermilch";
+  $("shopDlg").showModal();
+  if(voice)$("shopDlgIn").focus();
+}
+$("shopDlg").addEventListener("close",()=>{S.voiceType=false});
+
+/* ---------- Einkaufsliste per Sprache: großen Einkaufs-Knopf lang drücken ---------- */
+// Gesprochenes in einzelne Artikel zerlegen: „Ich brauche Milch, zwei Gurken und Klopapier“ → Milch · Zwei Gurken · Klopapier
+function splitSpoken(text){
+  const lead=/^(?:ähm?\s+|also\s+|bitte\s+|dann\s+|noch\s+|außerdem\s+|und\s+|wir\s+brauchen\s+|ich\s+brauche\s+|brauchen\s+|bräuchten\s+|kauf(?:e|t)?\s+|setz(?:e|t)?\s+|schreib(?:e|t)?\s+)+/i;
+  const tail=/\s+(?:bitte|noch|auf\s+die\s+(?:einkaufs)?liste(?:\s+setzen)?|kaufen|besorgen|mitbringen)$/i;
+  return String(text||"")
+    .split(/\s*(?:[,;.]|\bund\b|\bsowie\b|\baußerdem\b|\bdann\b|\bplus\b)\s*/i)
+    .map(x=>x.trim().replace(lead,"").replace(tail,"").replace(tail,"").trim())
+    .filter(x=>x.length>1)
+    .map(x=>(x[0].toUpperCase()+x.slice(1)).slice(0,80));
+}
+async function addShopItems(items){
+  if(!items.length||!S.sb)return 0;
+  const have=new Set(S.shop.filter(x=>!x.done).map(x=>x.text.toLowerCase()));
+  const fresh=[...new Set(items)].filter(t=>!have.has(t.toLowerCase()));
+  if(!fresh.length){toast(items.length===1?"„"+items[0]+"“ steht schon auf der Liste":"Steht alles schon auf der Liste");return 0}
+  try{
+    await q(S.sb.from("shopping").insert(fresh.map(text=>({text,added_by:S.me}))));
+    fresh.forEach(queueShopNotify);await loadShop();
+    toast(fresh.length===1?"„"+fresh[0]+"“ steht auf der Liste":fresh.length+" Sachen auf der Liste: "+fresh.join(", "));
+  }catch(e){writeErr(e)}
+  return fresh.length;
+}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const voice={rec:null,text:"",final:"",ok:false};
+function voiceStop(save){
+  voice.ok=save;
+  try{voice.rec&&voice.rec.stop()}catch(e){}
+  if(!voice.rec)voiceEnd();
+}
+function voiceEnd(){
+  const text=(voice.final+" "+voice.text).trim();
+  $("voiceDlg").classList.remove("on");
+  if($("voiceDlg").open)$("voiceDlg").close();
+  const save=voice.ok;voice.rec=null;voice.text="";voice.final="";
+  if(save&&text)addShopItems(splitSpoken(text));
+  else if(save)toast("Nichts verstanden – versuch es noch einmal.");
+}
+function voiceStart(){
+  if(!SR)return openShopDlg(true);
+  let rec;
+  try{rec=new SR()}catch(e){return openShopDlg(true)}
+  voice.rec=rec;voice.text="";voice.final="";voice.ok=true;
+  rec.lang="de-DE";rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;
+  $("voiceTxt").textContent="Sprich jetzt …";
+  $("voiceHint").textContent="z. B. „Hafermilch, zwei Gurken und Klopapier“";
+  $("voiceDlg").showModal();$("voiceDlg").classList.add("on");
+  let quiet;
+  rec.onresult=ev=>{
+    let fin="",tmp="";
+    for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript+" ";else tmp+=r[0].transcript}
+    voice.final=fin.trim();voice.text=tmp.trim();
+    $("voiceTxt").textContent=(voice.final+" "+voice.text).trim()||"Sprich jetzt …";
+    // Nach 2 Sekunden Pause automatisch fertig
+    clearTimeout(quiet);quiet=setTimeout(()=>voiceStop(true),2000);
+  };
+  rec.onerror=ev=>{
+    clearTimeout(quiet);
+    if(ev.error==="no-speech"||ev.error==="aborted")return;
+    voice.ok=false;voice.rec=null;
+    $("voiceDlg").classList.remove("on");if($("voiceDlg").open)$("voiceDlg").close();
+    // In der Homescreen-App lässt iOS die Spracherkennung teils nicht zu: dann über das Mikrofon der Tastatur
+    openShopDlg(true);
+  };
+  rec.onend=()=>{clearTimeout(quiet);if(voice.rec===rec)voiceEnd()};
+  try{rec.start()}catch(e){voice.rec=null;$("voiceDlg").close();openShopDlg(true)}
+}
+$("voiceDone").onclick=()=>voiceStop(true);
+$("voiceCancel").onclick=()=>voiceStop(false);
+$("voiceDlg").addEventListener("cancel",ev=>{ev.preventDefault();voiceStop(false)});
+
+// Kurz tippen = Eingabefenster, lang drücken (ab 0,45 s) und loslassen = sprechen
+(()=>{
+  const b=$("addShopBtn");let t0=0,timer=0,long=false;
+  const reset=()=>{clearTimeout(timer);b.classList.remove("hold")};
+  b.addEventListener("pointerdown",ev=>{if(ev.button>0)return;t0=Date.now();long=false;timer=setTimeout(()=>{long=true;b.classList.add("hold");try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}},450)});
+  b.addEventListener("pointerleave",reset);b.addEventListener("pointercancel",()=>{reset();long=false});
+  b.addEventListener("contextmenu",ev=>ev.preventDefault());
+  // Langes Drücken: beim Loslassen starten (das gilt in Safari als Nutzeraktion, nötig für Mikrofon/Spracherkennung)
+  let skipClick=0;
+  b.addEventListener("pointerup",ev=>{
+    const held=long||(t0&&Date.now()-t0>=450);reset();long=false;t0=0;
+    if(!held)return;
+    ev.preventDefault();skipClick=Date.now();voiceStart();
+  });
+  b.addEventListener("click",()=>{
+    reset();
+    if(Date.now()-skipClick<800)return;
+    t0=0;openShopDlg(false);
+  });
+})();
 $("shopDlgClose").onclick=()=>$("shopDlg").close();
 $("shopDlgList").addEventListener("click",async ev=>{
   const d=ev.target.closest("[data-sdel]");if(!d)return;
