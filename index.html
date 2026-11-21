@@ -1115,7 +1115,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-21-1";
+const APP_VERSION="2026-11-21-2";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
@@ -1248,6 +1248,18 @@ function voiceEnd(){
   if(save&&text)addShopItems(splitSpoken(text));
   else if(save)toast("Nichts verstanden – halt den Knopf gedrückt, solange du sprichst.");
 }
+/* iPhone-Homescreen-Apps merken sich die Mikrofon-Erlaubnis nicht. Darum holen wir das Mikrofon
+   einmal pro App-Sitzung und halten es offen – solange es offen ist, fragt iOS nicht erneut. */
+const mic={stream:null,pending:null};
+function micAlive(){return !!(mic.stream&&mic.stream.getAudioTracks().some(t=>t.readyState==="live"))}
+function micEnsure(){
+  if(micAlive())return Promise.resolve(true);
+  if(mic.pending)return mic.pending;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return Promise.resolve(false);
+  mic.pending=navigator.mediaDevices.getUserMedia({audio:true})
+    .then(st=>{mic.stream=st;return true}).catch(()=>false).finally(()=>{mic.pending=null});
+  return mic.pending;
+}
 function voiceStart(){
   if(!SR)return false;
   const rec=voiceRec();if(!rec)return false;
@@ -1278,14 +1290,16 @@ $("voiceDlg").addEventListener("cancel",ev=>{ev.preventDefault();voiceStop(false
     down=true;t0=Date.now();pid=ev.pointerId;
     try{b.setPointerCapture(pid)}catch(e){}
     b.classList.add("hold");
-    live=voiceStart();
-    if(live){try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+    const go=()=>{if(!down)return;live=voiceStart();if(live){try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}};
+    if(micAlive()||!SR){live=false;go()}
+    else{live="wait";micEnsure().then(go)}
   });
   const release=(cancel)=>{
     if(!down)return;down=false;
     try{pid!=null&&b.releasePointerCapture(pid)}catch(e){}
     b.classList.remove("hold");
     const short=Date.now()-t0<TAP;
+    if(live==="wait"){live=false;if(!cancel&&short)openShopDlg(false);return}
     if(!live){ if(!cancel)openShopDlg(short?false:true); return }
     live=false;
     if(cancel)return voiceStop(false);
