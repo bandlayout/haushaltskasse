@@ -192,6 +192,7 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .fab:active{background:var(--primary-dark)}
 .fab.shop{background:var(--surface);color:var(--b-ink);border:3px solid var(--coral)}
 .fab.shop:active{background:var(--peach)}
+.fab.shop{touch-action:none}
 .fab{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .fab.shop.hold{background:var(--peach);box-shadow:0 0 0 6px color-mix(in srgb,var(--coral) 35%,transparent)}
 /* Spracheingabe Einkaufsliste */
@@ -199,6 +200,8 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 #voiceDlg{text-align:center}
 .voice-mic{width:84px;height:84px;margin:6px auto 12px;border-radius:50%;display:grid;place-items:center;background:var(--b-soft);color:var(--b-ink)}
 .voice-mic svg{width:40px;height:40px}
+#voiceDlg.ptt{pointer-events:none;position:fixed;inset:auto 0 calc(120px + env(safe-area-inset-bottom)) 0;margin:0 auto;z-index:50}
+#voiceDlg.ptt .voice-btns{display:none}
 #voiceDlg.on .voice-mic{animation:vpulse 1.2s ease-in-out infinite}
 @keyframes vpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--coral) 45%,transparent)}50%{box-shadow:0 0 0 14px transparent}}
 .voice-txt{min-height:3.2em;margin:0 0 6px;font-size:1.05rem;font-weight:600}
@@ -1112,7 +1115,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-19-2";
+const APP_VERSION="2026-11-21-1";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
@@ -1214,72 +1217,88 @@ async function addShopItems(items){
   return fresh.length;
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-const voice={rec:null,text:"",final:"",ok:false};
-function voiceStop(save){
-  voice.ok=save;
-  try{voice.rec&&voice.rec.stop()}catch(e){}
-  if(!voice.rec)voiceEnd();
-}
-function voiceEnd(){
-  const text=(voice.final+" "+voice.text).trim();
-  $("voiceDlg").classList.remove("on");
-  if($("voiceDlg").open)$("voiceDlg").close();
-  const save=voice.ok;voice.rec=null;voice.text="";voice.final="";
-  if(save&&text)addShopItems(splitSpoken(text));
-  else if(save)toast("Nichts verstanden – versuch es noch einmal.");
-}
-function voiceStart(){
-  if(!SR)return openShopDlg(true);
-  let rec;
-  try{rec=new SR()}catch(e){return openShopDlg(true)}
-  voice.rec=rec;voice.text="";voice.final="";voice.ok=true;
+/* Push-to-talk: Aufnahme läuft, solange der Einkaufs-Knopf gedrückt ist.
+   Die Spracherkennung wird pro App-Sitzung nur einmal angelegt und wiederverwendet –
+   so fragt das Handy (v. a. iPhone) möglichst nur einmal nach dem Mikrofon. */
+const voice={rec:null,running:false,text:"",final:"",ok:false,failed:false};
+function voiceRec(){
+  if(voice.rec)return voice.rec;
+  let rec;try{rec=new SR()}catch(e){return null}
   rec.lang="de-DE";rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;
-  $("voiceTxt").textContent="Sprich jetzt …";
-  $("voiceHint").textContent="z. B. „Hafermilch, zwei Gurken und Klopapier“";
-  $("voiceDlg").showModal();$("voiceDlg").classList.add("on");
-  let quiet;
   rec.onresult=ev=>{
     let fin="",tmp="";
     for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript+" ";else tmp+=r[0].transcript}
     voice.final=fin.trim();voice.text=tmp.trim();
     $("voiceTxt").textContent=(voice.final+" "+voice.text).trim()||"Sprich jetzt …";
-    // Nach 2 Sekunden Pause automatisch fertig
-    clearTimeout(quiet);quiet=setTimeout(()=>voiceStop(true),2000);
   };
   rec.onerror=ev=>{
-    clearTimeout(quiet);
     if(ev.error==="no-speech"||ev.error==="aborted")return;
-    voice.ok=false;voice.rec=null;
-    $("voiceDlg").classList.remove("on");if($("voiceDlg").open)$("voiceDlg").close();
-    // In der Homescreen-App lässt iOS die Spracherkennung teils nicht zu: dann über das Mikrofon der Tastatur
-    openShopDlg(true);
+    voice.failed=true;voice.ok=false;
   };
-  rec.onend=()=>{clearTimeout(quiet);if(voice.rec===rec)voiceEnd()};
-  try{rec.start()}catch(e){voice.rec=null;$("voiceDlg").close();openShopDlg(true)}
+  rec.onend=()=>{voice.running=false;voiceEnd()};
+  voice.rec=rec;return rec;
+}
+function voiceHide(){$("voiceDlg").classList.remove("on","ptt");if($("voiceDlg").open)$("voiceDlg").close()}
+function voiceEnd(){
+  const text=(voice.final+" "+voice.text).trim();
+  const save=voice.ok,failed=voice.failed;
+  voice.text="";voice.final="";voice.ok=false;voice.failed=false;
+  voiceHide();
+  if(failed){voice.rec=null;return openShopDlg(true)}  // z. B. Mikrofon verweigert: dann über die Tastatur
+  if(save&&text)addShopItems(splitSpoken(text));
+  else if(save)toast("Nichts verstanden – halt den Knopf gedrückt, solange du sprichst.");
+}
+function voiceStart(){
+  if(!SR)return false;
+  const rec=voiceRec();if(!rec)return false;
+  if(voice.running){try{rec.abort()}catch(e){}}
+  voice.text="";voice.final="";voice.ok=true;voice.failed=false;
+  $("voiceTxt").textContent="Sprich jetzt …";
+  $("voiceHint").textContent="Gedrückt halten und sprechen – loslassen zum Übernehmen";
+  try{rec.start();voice.running=true}catch(e){voice.rec=null;return false}
+  const d=$("voiceDlg");d.classList.add("ptt","on");if(!d.open)d.show();
+  return true;
+}
+function voiceStop(save){
+  voice.ok=save;
+  if(voice.running){try{save?voice.rec.stop():voice.rec.abort()}catch(e){voice.running=false;voiceEnd()}}
+  else voiceEnd();
 }
 $("voiceDone").onclick=()=>voiceStop(true);
 $("voiceCancel").onclick=()=>voiceStop(false);
 $("voiceDlg").addEventListener("cancel",ev=>{ev.preventDefault();voiceStop(false)});
 
-// Kurz tippen = Eingabefenster, lang drücken (ab 0,45 s) und loslassen = sprechen
+// Kurz tippen = Eingabefenster, gedrückt halten = sprechen (Aufnahme sofort beim Drücken, Ende beim Loslassen)
 (()=>{
-  const b=$("addShopBtn");let t0=0,timer=0,long=false;
-  const reset=()=>{clearTimeout(timer);b.classList.remove("hold")};
-  b.addEventListener("pointerdown",ev=>{if(ev.button>0)return;t0=Date.now();long=false;timer=setTimeout(()=>{long=true;b.classList.add("hold");try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}},450)});
-  b.addEventListener("pointerleave",reset);b.addEventListener("pointercancel",()=>{reset();long=false});
+  const b=$("addShopBtn");let t0=0,down=false,live=false,pid=null;
+  const TAP=300;
+  b.addEventListener("pointerdown",ev=>{
+    if(ev.button>0)return;
+    ev.preventDefault();
+    down=true;t0=Date.now();pid=ev.pointerId;
+    try{b.setPointerCapture(pid)}catch(e){}
+    b.classList.add("hold");
+    live=voiceStart();
+    if(live){try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+  });
+  const release=(cancel)=>{
+    if(!down)return;down=false;
+    try{pid!=null&&b.releasePointerCapture(pid)}catch(e){}
+    b.classList.remove("hold");
+    const short=Date.now()-t0<TAP;
+    if(!live){ if(!cancel)openShopDlg(short?false:true); return }
+    live=false;
+    if(cancel)return voiceStop(false);
+    // Nur kurz angetippt und nichts gesagt: Aufnahme verwerfen, Eingabefenster öffnen
+    if(short&&!(voice.final||voice.text)){voiceStop(false);openShopDlg(false);return}
+    voiceStop(true);
+  };
+  b.addEventListener("pointerup",()=>release(false));
+  b.addEventListener("pointercancel",()=>release(true));
+  b.addEventListener("lostpointercapture",()=>{if(down)release(false)});
   b.addEventListener("contextmenu",ev=>ev.preventDefault());
-  // Langes Drücken: beim Loslassen starten (das gilt in Safari als Nutzeraktion, nötig für Mikrofon/Spracherkennung)
-  let skipClick=0;
-  b.addEventListener("pointerup",ev=>{
-    const held=long||(t0&&Date.now()-t0>=450);reset();long=false;t0=0;
-    if(!held)return;
-    ev.preventDefault();skipClick=Date.now();voiceStart();
-  });
-  b.addEventListener("click",()=>{
-    reset();
-    if(Date.now()-skipClick<800)return;
-    t0=0;openShopDlg(false);
-  });
+  b.addEventListener("click",ev=>ev.preventDefault());
+  b.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();openShopDlg(false)}});
 })();
 $("shopDlgClose").onclick=()=>$("shopDlg").close();
 $("shopDlgList").addEventListener("click",async ev=>{
