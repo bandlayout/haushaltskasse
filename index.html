@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="theme-color" content="#F3F6F7">
+<meta name="theme-color" content="#FBF7F3">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg?v=5" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png?v=5">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Einkaufi">
 <title>Einkaufi - Ausgebi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap">
 <style>
 html{-webkit-text-size-adjust:100%}
 [hidden]{display:none!important}
@@ -287,6 +287,51 @@ dialog[open].kb-fit{position:fixed;margin:0 auto;inset:auto 0 auto 0;top:var(--d
 dialog::backdrop{background:rgb(23 58 71 / .4)}
 dialog form{display:flex;flex-direction:column;gap:12px}
 @media (prefers-reduced-motion:no-preference){.bar span,.track span{transition:width .35s ease}}
+
+/* ===== Pastell-Theme: weich, freundlich, nicht so bold ===== */
+:root{
+  --bg:#FBF7F3; --bg2:#FBF7F3; --surface:#FFFFFF; --sunk:#F5EFEA; --ink:#47505E; --muted:#8C94A1; --line:#EEE6DF;
+  --primary:#8EC3CF; --primary-dark:#5A97A6; --primary-soft:#E6F3F5; --teal:#A9D8D2;
+  --coral:#F3B1B4; --peach:#FDE6DA;
+  --a:#5A97A6; --a-ink:#4F8C9B; --a-soft:#E6F3F5; --b:#F3B1B4; --b-ink:#C77B82; --b-soft:#FCE9E7;
+  --accent:#8EC3CF; --accent-ink:#FFFFFF; --good:#6FAE9A; --danger:#D0838A;
+  --glow:0 2px 10px rgb(120 100 90 / .07);
+  --f-display:"Nunito", system-ui, -apple-system, sans-serif;
+  --f-body:"Nunito", system-ui, -apple-system, sans-serif;
+  --f-num:"Nunito", system-ui, -apple-system, sans-serif;
+  --r:20px;
+}
+body{font-size:15.5px}
+.num,.verdict .amt,.row .total,.stat .v,.cat .val,.amount-in,.keypad button,.chip,nav.tabs .count{font-variant-numeric:tabular-nums}
+h1{font-weight:700;letter-spacing:0}
+h2,h3{font-weight:600}
+.verdict{font-weight:700;font-size:1.5rem}
+.verdict .amt,.row .total,.stat .v,.cat .val,.amount-in{font-weight:600}
+.step-q,.auto-btn .big{font-weight:700}
+.chip,.shop .by,.hue-name,.x.armed{font-weight:600}
+.slip .label,.month-h,.exp-h{letter-spacing:.04em;text-transform:none;font-size:.8rem}
+.slip,.card{border-color:transparent;box-shadow:var(--glow)}
+.slip::after{display:none}
+.btn{border-radius:14px;border-color:var(--line);font-weight:600}
+.btn.primary{background:var(--primary-soft);color:var(--primary-dark);border-color:transparent;box-shadow:none}
+.btn.primary:hover{filter:none;background:#DAEDF0}
+.seg{background:var(--sunk)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--primary-dark);box-shadow:var(--glow)}
+.f input,.f select,.filters select{border-radius:12px;border-color:transparent;background:var(--sunk)}
+.keypad button{border-color:transparent;border-radius:16px;font-weight:500}
+.chip{border-radius:14px}
+nav.tabs{border-bottom-color:var(--line)}
+nav.tabs a{font-weight:600}
+nav.tabs a[aria-current="page"]{color:var(--primary-dark);border-bottom:3px solid var(--primary);border-radius:2px}
+.fab{background:var(--primary-soft);color:var(--primary-dark);border:3px solid var(--primary);box-shadow:0 6px 18px rgb(142 195 207 / .28)}
+.fab:active{background:#D5ECF0}
+.fab.shop{background:var(--b-soft);color:var(--b-ink);border:3px solid var(--coral);box-shadow:0 6px 18px rgb(243 177 180 / .28)}
+.fab.shop:active,.fab.shop.hold{background:var(--peach)}
+.cat-tile[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
+dialog{border:0;border-radius:24px;box-shadow:0 20px 50px rgb(90 70 60 / .18)}
+dialog::backdrop{background:rgb(71 80 94 / .25)}
+.toast{border-radius:16px;background:#5C6675}
+.tag{background:var(--sunk);color:var(--muted)}
 </style>
 </head>
 <body>
@@ -1126,13 +1171,12 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-21-3";
+const APP_VERSION="2026-11-21-4";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
-  "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
-  "Neues Logo: Einkaufswagen mit Plus in den neuen Farben.",
-  "„Einkauf“ heißt jetzt „Einkaufsliste“.",
-  "Beim Öffnen ist das Zahlenfeld für den Betrag sofort da."
+  "Neues, weicheres Design: Pastellfarben, rundere Formen und eine freundlichere Schrift.",
+  "Einkaufsliste: Hinter jedem Artikel steht ganz klein, wann er dazukam.",
+  "Sprechen: Einkaufs-Knopf gedrückt halten, solange du sprichst – loslassen übernimmt die Artikel."
 ];
 function announceVersion(){
   const seen=ls.get("hk-ver");
