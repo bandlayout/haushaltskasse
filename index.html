@@ -159,6 +159,7 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .shop input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none;cursor:pointer}
 .shop .t{flex:1;min-width:0;overflow-wrap:anywhere}
 .shop li.done .t{text-decoration:line-through;color:var(--muted)}
+.shop .when{font-size:.62rem;color:var(--muted);opacity:.7;white-space:nowrap;font-variant-numeric:tabular-nums;flex:none}
 .shop .by{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px}
 .shop .by.a{background:var(--a-soft);color:var(--a)} .shop .by.b{background:var(--b-soft);color:var(--b-ink)}
 .done-h{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 4px 4px;font-size:.8rem;color:var(--muted);font-weight:600}
@@ -801,10 +802,20 @@ function renderOverview(){
   for(const x of rows){tot+=x.cents;const shA=(x.shareA??50)/100;sa+=x.cents*shA;sb+=x.cents*(1-shA)}
   $("sTotal").textContent=eur(tot);$("sA").textContent=eur(Math.round(sa));$("sB").textContent=eur(Math.round(sb));
 }
+// Kurzes Zeit-Kürzel: heute „14:05“, gestern „gest.“, diese Woche „Mo“, älter „12.11.“
+function shopWhen(ts){
+  if(!ts)return "";
+  const d=new Date(ts),n=new Date(),day=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime();
+  const diff=Math.round((day(n)-day(d))/864e5);
+  if(diff<=0)return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  if(diff===1)return "gest.";
+  if(diff<7)return ["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  return d.getDate()+"."+(d.getMonth()+1)+".";
+}
 function renderShop(){
   const open=S.shop.filter(x=>!x.done),done=S.shop.filter(x=>x.done);
   $("shopCount").textContent=open.length;
-  const item=x=>`<li class="${x.done?"done":""}"><input type="checkbox" id="chk-${esc(x.id)}" data-chk="${esc(x.id)}" ${x.done?"checked":""} aria-label="${esc(x.text)} abhaken"><label class="t" for="chk-${esc(x.id)}">${esc(x.text)}</label>${x.by?`<span class="by ${x.by}" title="hinzugefügt von ${esc(nm(x.by))}">${esc(nm(x.by).slice(0,2).toUpperCase())}</span>`:""}<button class="x" type="button" data-sdel="${esc(x.id)}" aria-label="${esc(x.text)} entfernen">✕</button></li>`;
+  const item=x=>`<li class="${x.done?"done":""}"><input type="checkbox" id="chk-${esc(x.id)}" data-chk="${esc(x.id)}" ${x.done?"checked":""} aria-label="${esc(x.text)} abhaken"><label class="t" for="chk-${esc(x.id)}">${esc(x.text)}</label>${x.at?`<time class="when" title="hinzugefügt ${new Date(x.at).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"})}">${shopWhen(x.at)}</time>`:""}${x.by?`<span class="by ${x.by}" title="hinzugefügt von ${esc(nm(x.by))}">${esc(nm(x.by).slice(0,2).toUpperCase())}</span>`:""}<button class="x" type="button" data-sdel="${esc(x.id)}" aria-label="${esc(x.text)} entfernen">✕</button></li>`;
   $("shopOpen").innerHTML=!S.loaded.s?'<li class="empty">Liste wird geladen …</li>':open.length?open.map(item).join(""):`<li class="empty">${done.length?"Alles erledigt.":"Die Liste ist leer. Schreib oben rein, was fehlt."}</li>`;
   $("doneWrap").hidden=!done.length;
   $("doneLabel").textContent=`Erledigt (${done.length})`;
@@ -1115,7 +1126,7 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 $("reloadApp").onclick=()=>{$("reloadApp").textContent="Lädt …";location.replace(location.pathname+"?v="+Date.now()+location.hash)};
 /* Automatische Updates: Beim Öffnen und jedes Mal, wenn die App wieder in den Vordergrund kommt,
    wird geprüft, ob auf dem Server eine neuere Version liegt. Bei jeder Änderung APP_VERSION erhöhen. */
-const APP_VERSION="2026-11-21-2";
+const APP_VERSION="2026-11-21-3";
 /* Hinweis „Neue Version geladen“: Was ist neu? Bei jedem Update hier eintragen. */
 const CHANGES=[
   "Neue Farben: Petrol, Türkis, Koralle und Pfirsich – weiterhin ohne Farbverläufe.",
@@ -1359,7 +1370,7 @@ async function loadMe(){
 }
 async function loadShop(){
   const d=await q(S.sb.from("shopping").select("*").order("created_at",{ascending:true}));
-  S.shop=d.map(r=>({id:r.id,text:r.text,done:r.done,by:r.added_by}));S.loaded.s=true;renderShop();
+  S.shop=d.map(r=>({id:r.id,text:r.text,done:r.done,by:r.added_by,at:Date.parse(r.created_at)||0}));S.loaded.s=true;renderShop();
 }
 let channel=null,debounce={};
 const later=(k,fn)=>{clearTimeout(debounce[k]);debounce[k]=setTimeout(()=>fn().catch(writeErr),150)};
